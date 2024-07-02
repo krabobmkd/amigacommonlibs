@@ -1,0 +1,5 @@
+* "muiclass.library"
+##base _MUIClassBase
+##bias 30
+MCC_Query(what)(d0)
+##end
