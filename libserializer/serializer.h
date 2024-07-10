@@ -4,14 +4,14 @@
 #include <vector>
 #include <string>
 
-struct ASerialization;
+struct ASerializer;
 
 struct ASerializable {
-    virtual void serialize(ASerialization &serializer)=0;
+    virtual void serialize(ASerializer &serializer)=0;
 };
 
 struct ASerializer {
-	
+
     virtual void operator()(const char *sMemberName, ASerializable &subconf, int flags=0) = 0;
     virtual void operator()(const char *sMemberName, std::string &str) = 0;
     // for sliders

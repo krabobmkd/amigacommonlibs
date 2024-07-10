@@ -8,9 +8,13 @@ extern "C" {
 	#include <exec/types.h>
 }
 
+#ifndef Object
+typedef void *Object;
+#endif
+
 struct MUISerializer : public ASerializer {
 	
-	MUISerializer();
+	MUISerializer(ASerializable &root);
     void operator()(const char *sMemberName, ASerializable &subconf, int flags=0) override;
     void operator()(const char *sMemberName, std::string &str) override;
     // for sliders
@@ -21,12 +25,18 @@ struct MUISerializer : public ASerializer {
     void operator()(const char *sMemberName, bool &v) override;
 	
 	// - - - - - -	
+
+    Object *compile();
+
 	struct Level {
-		ULONG _obj;
+    	Object *compile();
+        ASerializable *_serialized;
+		ULONG _obj=0L; // actually Object *
+		struct Level
 		std::vector<ULONG> _taglist;
 	};
-	
-	ULONG _rootobj;
+
+	Level _root;
 };
 
 
