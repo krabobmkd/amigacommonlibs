@@ -22,7 +22,7 @@ struct MUISerializer : public ASerializer {
 	MUISerializer();
     virtual ~MUISerializer();
     void operator()(const char *sMemberName, ASerializable &subconf, int flags=0) override;
-    #define SERFLAG_STRING_ISPATH 1
+
     void operator()(const char *sMemberName, std::string &str, int flags=0) override;
     // for sliders
     void operator()(const char *sMemberName, int &v, int min, int max) override;
@@ -55,9 +55,9 @@ protected:
         void compile() override;
 	};
     struct LGroup : public Level {
-        LGroup();
+        LGroup(int flg);
         void compile() override;
-        int _ordertype;
+        int _flags;
 	};
     struct LPath : public Level {
         LPath(std::string &str);

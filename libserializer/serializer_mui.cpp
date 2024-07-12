@@ -54,7 +54,7 @@ void MUISerializer::operator()(const char *sMemberName, ASerializable &subconf, 
         plevel = new LTabs();
     } else
     {
-        plevel = new LGroup();
+        plevel = new LGroup(flags);
     }
     if(!plevel) return;
 
@@ -240,10 +240,9 @@ void MUISerializer::LTabs::compile()
 
 }
 // - - - - - - - - - - - - - - -
-MUISerializer::LGroup::LGroup(): Level()
-,_ordertype(0)
+MUISerializer::LGroup::LGroup(int flg) : Level()
 {
-
+    _flags = flg;
 }
 void MUISerializer::LGroup::compile()
 {
@@ -251,7 +250,9 @@ void MUISerializer::LGroup::compile()
 
     //if(_ordertype ==0)
     {
-        vector<ULONG> tagitems= {MUIA_Group_Columns,2,MUIA_HorizWeight,1000};
+        int nbcolumns = 2;
+        if(_flags & SERFLAG_GROUP_2COLUMS) nbcolumns=4;
+        vector<ULONG> tagitems= {MUIA_Group_Columns,nbcolumns,MUIA_HorizWeight,1000};
         Level *plevel = _pFirstChild;
         int nbadded=0;
         while(plevel)
