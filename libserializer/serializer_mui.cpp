@@ -8,7 +8,11 @@
 #include <proto/graphics.h>
 #include <proto/intuition.h>
 
+#include <stdio.h>
+
 #include "macros.h"
+
+
 
 extern "C" {
     #include <libraries/mui.h>
@@ -38,6 +42,7 @@ MUISerializer::MUISerializer()
 }
 MUISerializer::~MUISerializer()
 {
+    printf("~MUISerializer() delete stack\n");
     for(Level *plv : _stack) if(plv) delete plv;
 }
 void MUISerializer::operator()(const char *sMemberName, ASerializable &subconf, int flags)
@@ -153,13 +158,18 @@ void MUISerializer::insertFirstPanel(Object *pPanel,const char *pName)
 Object *MUISerializer::compile()
 {
     if(!_pRoot) return NULL;
+    printf("compile stacksize:%d\n",(int)_stack.size());
     //  leaf to root widget creation
     list<Level *>::reverse_iterator rit = _stack.rbegin();
+    int i=0;
     while(rit != _stack.rend())
     {
         Level *level = *rit++;
-        if(!level->_Object) level->compile();
+        printf("compile:%d\n",i);
+        if(!level->_Object) level->compile(); // create object if not done
+        i++;
     }
+   printf("end compile\n");
     return _pRoot->_Object;
 }
 void MUISerializer::updateUI()
@@ -167,8 +177,8 @@ void MUISerializer::updateUI()
     list<Level *>::reverse_iterator rit = _stack.rbegin();
     while(rit != _stack.rend())
     {
-        Level *level = *rit++;
-        if(!level->_Object) level->update();
+        Level *plevel = *rit++;
+        if(plevel->_Object) plevel->update();
     }
 
 }
@@ -189,30 +199,40 @@ MUISerializer::LTabs::LTabs() : Level()
 
 void MUISerializer::LTabs::compile()
 {
+    printf("LTabs::compile\n");
     std::vector<const char *> registerTitles;
 
     Level *plevel = _pFirstChild;
-    while(!plevel)
+    while(plevel)
     {
-         if(plevel->_Object) registerTitles.push_back(plevel->_pMemberName);
+        printf("name: plevel->_Object:%08x name:%s\n",(int)plevel->_Object,plevel->_pMemberName);
+
+         if(plevel->_Object)
+         {
+            printf("name:%s\n",plevel->_pMemberName);
+            registerTitles.push_back(plevel->_pMemberName);
+         }
         plevel = plevel->_pNextBrother;
     }
     registerTitles.push_back(NULL);
+    printf("end names\n");
 
     std::vector<ULONG> tagitems={
         MUIA_Register_Titles,(ULONG)registerTitles.data()
     };
 
     plevel = _pFirstChild;
-    while(!plevel)
+    while(plevel)
     {
         if(plevel->_Object)
         {
+        printf("add child:%s\n",plevel->_pMemberName);
             tagitems.push_back(Child);
             tagitems.push_back((ULONG)plevel->_Object);
         }
         plevel = plevel->_pNextBrother;
     }
+    printf("end childs\n");
     tagitems.push_back(TAG_DONE);
 
     _Object = MUI_NewObjectA(MUIC_Register, (struct TagItem *) tagitems.data());
@@ -227,26 +247,50 @@ MUISerializer::LGroup::LGroup(): Level()
 }
 void MUISerializer::LGroup::compile()
 {
-    std::vector<ULONG> tagitems;
-    tagitems.push_back(Child);
-    tagitems.push_back((ULONG)HVSpace);
-    if(_ordertype ==0)
+    printf("LGroup::compile\n");
+
+    //if(_ordertype ==0)
     {
+        vector<ULONG> tagitems= {MUIA_Group_Columns,2,MUIA_HorizWeight,1000};
         Level *plevel = _pFirstChild;
-        while(!plevel)
+        int nbadded=0;
+        while(plevel)
         {
-            //TODO  if(plevel->_Object)
+            if(plevel->_Object && plevel->_pMemberName)
+            {
+            printf("group: add member:%s\n",plevel->_pMemberName);
+                tagitems.push_back(Child);
+                tagitems.push_back((ULONG)Label((ULONG)plevel->_pMemberName));
+                tagitems.push_back(Child);
+                tagitems.push_back((ULONG)plevel->_Object);
+                nbadded++;
+            }
             plevel = plevel->_pNextBrother;
         }
+        if(nbadded==0)
+        {
+            tagitems.push_back(Child);
+            tagitems.push_back((ULONG)Label((ULONG)"-"));
+            tagitems.push_back(Child);
+            tagitems.push_back((ULONG)Label((ULONG)"-"));
+        }
+        tagitems.push_back(TAG_DONE);
 
+        Object *InnerGroup = MUI_NewObjectA(MUIC_Group,(struct TagItem *) tagitems.data());
+
+        // recenter/ expand
+        _Object = MUI_NewObject(MUIC_Group,
+                    Child, (ULONG)HVSpace,
+                    Child, (ULONG)MUI_NewObject(MUIC_Group,MUIA_Group_Horiz,TRUE,
+                        Child, (ULONG)HSpace(0),
+                        Child,(ULONG)InnerGroup,
+                        Child, (ULONG)HSpace(0),
+                        TAG_DONE
+                        ),
+                    Child, (ULONG)HVSpace,
+                    TAG_DONE
+                    );
     } // end if _ordertype horiz/vert.
-
-
-    tagitems.push_back(Child);
-    tagitems.push_back((ULONG)HVSpace);
-    tagitems.push_back(TAG_DONE);
-
-    _Object = MUI_NewObjectA(MUIC_Group, (struct TagItem *) &tagitems);
 }
 // - - - - - - - - - - - - - - -
 MUISerializer::LPath::LPath(std::string &str): Level()
@@ -256,6 +300,7 @@ MUISerializer::LPath::LPath(std::string &str): Level()
 }
 void MUISerializer::LPath::compile()
 {
+    printf("LPath::compile (empty)\n");
     // already done
 }
 void  MUISerializer::LPath::update()
@@ -271,27 +316,29 @@ MUISerializer::LSlider::LSlider(int &value,int min,int max): Level()
 }
 void MUISerializer::LSlider::compile()
 {
-
+    printf("LSlider::compile (todo)\n");
 }
 // - - - - - - - - - - - - - - -
 MUISerializer::LCycle::LCycle(int &value,const std::vector<std::string> &values): Level()
  ,_value(value),_values(values)
 {
-
+    _valuesptr.reserve(_values.size()+1);
+    for(const string &str : _values) _valuesptr.push_back(str.c_str());
+    _valuesptr.push_back(NULL);
 }
 
 ULONG ASM MUISerializer::LCycle::HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1))
 {
     MUISerializer::LCycle *plevel = (MUISerializer::LCycle *)hook->h_Data;
     plevel->_value = *par;
+  //  printf("LCycle::HNotify:%d\n",(int)plevel->_value);
 }
 
 void MUISerializer::LCycle::compile()
 {
-    vector<const char *> valuesptr;
-    for(const string &str : _values) valuesptr.push_back(str.c_str());
+   // printf("LCycle::compile _values size:%d\n",(int)_values.size());
 
-    _Object = MUI_NewObject(MUIC_Cycle,MUIA_Cycle_Entries,(ULONG)valuesptr.data(),TAG_DONE);
+    _Object = MUI_NewObject(MUIC_Cycle,MUIA_Cycle_Entries,(ULONG)_valuesptr.data(),TAG_DONE);
     if(_Object)
     {
         _notifyHook.h_Entry =(RE_HOOKFUNC)&MUISerializer::LCycle::HNotify;
@@ -309,6 +356,6 @@ MUISerializer::LCheckBox::LCheckBox(bool &value): Level()
 }
 void MUISerializer::LCheckBox::compile()
 {
-
+    printf("LCheckBox::compile (todo)\n");
 }
 // - - - - - - - - - - - - - - -

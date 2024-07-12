@@ -77,7 +77,8 @@ protected:
         LCycle(int &value,const std::vector<std::string> &values);
         void compile() override;
         int &_value;
-        const std::vector<std::string> &_values;
+        std::vector<std::string> _values;
+        std::vector<const char *> _valuesptr;
         struct Hook _notifyHook;
 	};
     struct LCheckBox : public Level {
