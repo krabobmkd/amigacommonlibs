@@ -60,22 +60,28 @@ protected:
         int _flags;
 	};
     struct LPath : public Level {
+        static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2),const char **par REG(a1));
         LPath(std::string &str);
         void compile() override;
         void update() override;
         std::string &_str;
         Object *STRING_Path;
+        struct Hook _notifyHook;
 	};
     struct LSlider : public Level {
+        static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1));
         LSlider(int &value,int min,int max);
         void compile() override;
+        void update() override;
         int &_value;
         int _min,_max;
+        struct Hook _notifyHook;
 	};
     struct LCycle : public Level {
         static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1));
         LCycle(int &value,const std::vector<std::string> &values);
         void compile() override;
+        void update() override;
         int &_value;
         std::vector<std::string> _values;
         std::vector<const char *> _valuesptr;

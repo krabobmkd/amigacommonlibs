@@ -6,7 +6,6 @@
 
 struct ASerializer;
 
-//#define SERFLAG_IS_TABGROUP 1
 #define SERFLAG_STRING_ISPATH 1
 
 #define SERFLAG_GROUP_TABS 1
@@ -14,11 +13,6 @@ struct ASerializer;
 
 struct ASerializable {
     virtual void serialize(ASerializer &serializer)=0;
-    int _flags=0;
-};
-enum class SerFlags : int
-{
-
 };
 
 struct ASerializer {

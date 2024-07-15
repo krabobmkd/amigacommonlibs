@@ -88,12 +88,6 @@ void MUISerializer::operator()(const char *sMemberName, std::string &str,int fla
         *_pGrower = plevel;
         _pGrower = &plevel->_pNextBrother;
 
-        // what compile would do:
-        plevel->_Object = MUI_NewObject(MUIC_Popasl,
-                  MUIA_Popstring_String,(ULONG)(plevel->STRING_Path = OString(0, 2048)),
-                  MUIA_Popstring_Button, (ULONG)(PopButton(MUII_PopDrawer)),
-                  ASLFR_DrawersOnly,    TRUE,
-                TAG_DONE);
     } else
     {
         // TODO
@@ -299,17 +293,55 @@ MUISerializer::LPath::LPath(std::string &str): Level()
 {
 
 }
+ULONG ASM MUISerializer::LPath::HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), const char **par REG(a1))
+{
+    if(!par || !hook) return 0;
+
+    LPath *plevel = (LPath *)hook->h_Data;
+    plevel->_str = *par;
+
+    return 0;
+}
 void MUISerializer::LPath::compile()
 {
-    printf("LPath::compile (empty)\n");
-    // already done
+    printf("LPath::compile\n");
+
+    _Object = MUI_NewObject(MUIC_Popasl,
+              MUIA_Popstring_String,(ULONG)(STRING_Path = OString(0, 2048)),
+              MUIA_Popstring_Button, (ULONG)(PopButton(MUII_PopDrawer)),
+              ASLFR_DrawersOnly,    TRUE,
+            TAG_DONE);
+    if(STRING_Path)
+    {
+        _notifyHook.h_Entry =(RE_HOOKFUNC)&MUISerializer::LPath::HNotify;
+        _notifyHook.h_Data = this;
+        DoMethod(STRING_Path,MUIM_Notify,
+           MUIA_String_Contents/*MUIA_String_Acknowledge*/,
+           MUIV_EveryTime,
+           _Object,
+           3, //?
+            MUIM_CallHook,(ULONG) &_notifyHook,  MUIV_TriggerValue
+           );
+    }
+
+
 }
 void  MUISerializer::LPath::update()
 {
-    if(!_Object) return;
-    SetAttrs(_Object,MUIA_String_Contents,(ULONG)_str.c_str(),TAG_DONE);
+    printf(" ****** LPath::update: *****\n");
+    if(!_Object || !STRING_Path) return;
+    printf("LPath::update:%s\n",_str.c_str());
+    SetAttrs(STRING_Path,MUIA_String_Contents,(ULONG)_str.c_str(),TAG_DONE);
 }
 // - - - - - - - - - - - - - - -
+ULONG ASM MUISerializer::LSlider::HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1))
+{
+    if(!hook || !par) return 0;
+    LSlider *plevel = (LSlider *)hook->h_Data;
+    plevel->_value = *par;
+   // printf("LSlider::HNotify:%d\n",*par);
+   return 0;
+}
 MUISerializer::LSlider::LSlider(int &value,int min,int max): Level()
  , _value(value),_min(min),_max(max)
 {
@@ -317,7 +349,29 @@ MUISerializer::LSlider::LSlider(int &value,int min,int max): Level()
 }
 void MUISerializer::LSlider::compile()
 {
-    printf("LSlider::compile (todo)\n");
+    printf("LSlider::compile\n");
+    _Object = MUI_NewObject(MUIC_Slider,
+              MUIA_Slider_Min,    _min,
+              MUIA_Slider_Max,    _max,
+            TAG_DONE);
+    if(_Object)
+    {
+        _notifyHook.h_Entry =(RE_HOOKFUNC)&MUISerializer::LSlider::HNotify;
+        _notifyHook.h_Data = this;
+        DoMethod(_Object,MUIM_Notify,
+                    MUIA_Slider_Level, // attribute that triggers the notification.
+                    MUIV_EveryTime, // TrigValue ,  every time when TrigAttr changes
+                    _Object, // object on which to perform the notification method. or MUIV_Notify_Self
+                    3, // FollowParams  number of following parameters (in hook ?)
+                    MUIM_CallHook,(ULONG) &_notifyHook,  MUIV_TriggerValue);
+
+    }
+
+}
+void MUISerializer::LSlider::update()
+{
+    if(!_Object) return;
+    SetAttrs(_Object,MUIA_Slider_Level,_value,TAG_DONE);
 }
 // - - - - - - - - - - - - - - -
 MUISerializer::LCycle::LCycle(int &value,const std::vector<std::string> &values): Level()
@@ -330,8 +384,10 @@ MUISerializer::LCycle::LCycle(int &value,const std::vector<std::string> &values)
 
 ULONG ASM MUISerializer::LCycle::HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1))
 {
+    if(!hook || !par) return 0;
     MUISerializer::LCycle *plevel = (MUISerializer::LCycle *)hook->h_Data;
     plevel->_value = *par;
+   return 0;
   //  printf("LCycle::HNotify:%d\n",(int)plevel->_value);
 }
 
@@ -345,9 +401,23 @@ void MUISerializer::LCycle::compile()
         _notifyHook.h_Entry =(RE_HOOKFUNC)&MUISerializer::LCycle::HNotify;
         _notifyHook.h_Data = this;
         DoMethod(_Object, MUIM_Notify, MUIA_Cycle_Active, MUIV_EveryTime,
-                   _Object, (ULONG)_values.size(), MUIM_CallHook,(ULONG) &_notifyHook,  MUIV_TriggerValue);
+                   _Object,
+                    3, //number of following parameters. If you e.g.
+                    // have a notification method with three parts
+                    // (maybe MUIM_Set,attr,val), you have to set
+                    // FollowParams to 3.
+                    // - - - notification methods
+                    MUIM_CallHook,(ULONG) &_notifyHook,  MUIV_TriggerValue);
 
     }
+}
+void MUISerializer::LCycle::update()
+{
+    if(!_Object) return;
+    int v = _value;
+    if(v<0) v=0;
+    if(_values.size()>0 && v>=(int)_values.size()) v =(int)_values.size()-1;
+    SetAttrs(_Object,MUIA_Cycle_Active,v,TAG_DONE);
 }
 // - - - - - - - - - - - - - - -
 MUISerializer::LCheckBox::LCheckBox(bool &value): Level()
