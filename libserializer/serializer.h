@@ -18,6 +18,8 @@ struct ASerializable {
     virtual void serialize(ASerializer &serializer)=0;
 };
 
+typedef std::string strcomment;
+
 struct ASerializer {
 
     virtual void operator()(const char *sMemberName, ASerializable &subconf, int flags=0) = 0;
@@ -28,6 +30,7 @@ struct ASerializer {
     virtual void operator()(const char *sMemberName, int &v,const std::vector<std::string> &values) = 0;
     // for checkbox
     virtual void operator()(const char *sMemberName, bool &v) = 0;
+   //re? virtual void operator()(const char *sMemberName, strcomment &str) = 0;
     // per known mode.
 //    virtual void operator()(const char *sMemberName,
 //            std::map<std::string,std::unique_ptr<ASerializable>> &confmap) = 0;
