@@ -30,7 +30,9 @@ struct MUISerializer : public ASerializer {
     void operator()(const char *sMemberName, int &v,const std::vector<std::string> &values) override;
     // for checkbox
     void operator()(const char *sMemberName, bool &v) override;
-	
+	// per known mode.
+//    void operator()(const char *sMemberName,
+//            std::map<std::string,std::unique_ptr<ASerializable>> &confmap) override;
 	// - - - - - -	
     // allow insertion of tabs before compile...
     void insertFirstPanel(Object *pPanel,const char *pName);
@@ -50,22 +52,33 @@ protected:
         virtual void compile() {}
         virtual void update() {}
 	};
-    struct LTabs : public Level {
+    struct LGroup : public Level {
+        LGroup(int flgs);
+        void compile() override;
+        void update() override;
+        int _flgs;
+	};
+    struct LTabs : public LGroup {
         LTabs();
         void compile() override;
+        std::vector<const char *> _registerTitles;
 	};
-    struct LGroup : public Level {
-        LGroup(int flg);
-        void compile() override;
-        int _flags;
-	};
-    struct LPath : public Level {
+
+//    struct LSwitchGroup : public Level {
+//        LSwitchGroup();
+//        void compile() override;
+//        void update() override;
+//        void setTo(const char *pGroupName);
+//        std::map<std::string,std::unique_ptr<ASerializable>> *_confmap;
+//	};
+    struct LString : public Level {
         static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2),const char **par REG(a1));
-        LPath(std::string &str);
+        LString(std::string &str, int flgs);
         void compile() override;
         void update() override;
         std::string &_str;
-        Object *STRING_Path;
+        int _flgs;
+        Object *_STRING_Path;
         struct Hook _notifyHook;
 	};
     struct LSlider : public Level {
