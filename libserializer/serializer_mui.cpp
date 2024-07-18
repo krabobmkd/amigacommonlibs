@@ -12,8 +12,6 @@
 
 #include "macros.h"
 
-
-
 extern "C" {
     #include <libraries/mui.h>
     #include <inline/muimaster.h>
