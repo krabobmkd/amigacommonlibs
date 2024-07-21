@@ -14,6 +14,7 @@ extern "C" {
 #define REG(r) __asm(#r)
 #endif
 
+struct ScreenModeRequester;
 
 /** Will mirror MUI panels and gadgets to serialized data.
 */
@@ -30,9 +31,11 @@ struct MUISerializer : public ASerializer {
     void operator()(const char *sMemberName, int &v,const std::vector<std::string> &values) override;
     // for checkbox
     void operator()(const char *sMemberName, bool &v) override;
-	// per known mode.
-//    void operator()(const char *sMemberName,
-//            std::map<std::string,std::unique_ptr<ASerializable>> &confmap) override;
+    // for screen ids
+    void operator()(const char *sMemberName, ULONG_SCREENMODEID &v) override;
+	// serialize abstract class string map
+    void operator()(const char *sMemberName, AStringMap &m) override;
+
 	// - - - - - -	
     // allow insertion of tabs before compile...
     void insertFirstPanel(Object *pPanel,const char *pName);
@@ -40,6 +43,9 @@ struct MUISerializer : public ASerializer {
     Object *compile();
 
     void updateUI();
+
+    // switch LGroupSubMap
+    void selectGroup(std::string groupurl,std::string selection);
 
 protected:
 
@@ -51,12 +57,21 @@ protected:
         struct Level *_pNextBrother;
         virtual void compile() {}
         virtual void update() {}
+        Level *getChild(const char *pMemberName);
 	};
     struct LGroup : public Level {
         LGroup(int flgs);
         void compile() override;
         void update() override;
+        virtual Object *compileOuterFrame(Object *pinnerGroup);
         int _flgs;
+	};
+    struct LSwitchGroup : public LGroup {
+        LSwitchGroup(int flgs,AStringMap &map);
+        Object *compileOuterFrame(Object *pinnerGroup) override;
+        void setGroup(const char *pid);
+        AStringMap *_map;
+        std::string _displayName;
 	};
     struct LTabs : public LGroup {
         LTabs();
@@ -76,7 +91,7 @@ protected:
         LString(std::string &str, int flgs);
         void compile() override;
         void update() override;
-        std::string &_str;
+        std::string *_str;
         int _flgs;
         Object *_STRING_Path;
         struct Hook _notifyHook;
@@ -86,7 +101,7 @@ protected:
         LSlider(int &value,int min,int max);
         void compile() override;
         void update() override;
-        int &_value;
+        int *_value;
         int _min,_max;
         struct Hook _notifyHook;
 	};
@@ -95,7 +110,7 @@ protected:
         LCycle(int &value,const std::vector<std::string> &values);
         void compile() override;
         void update() override;
-        int &_value;
+        int *_value;
         std::vector<std::string> _values;
         std::vector<const char *> _valuesptr;
         struct Hook _notifyHook;
@@ -103,14 +118,44 @@ protected:
     struct LCheckBox : public Level {
         LCheckBox(bool &value);
         void compile() override;
-        bool &_value;
+        void update() override;
+        bool *_value;
+        static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1));
+        struct Hook _notifyHook;
 	};
-
+    struct LScreenModeReq : public Level {
+        LScreenModeReq(ULONG_SCREENMODEID &value);
+        void compile() override;
+        void update() override;
+        ULONG_SCREENMODEID *_value;
+        Object *_DisplayName;
+        Object *_PopUpScreenMode;
+        struct Hook _ScreenModeStartHook;
+        struct Hook _ScreenModeStopHook;
+        static ULONG ASM PopupStart(struct Hook *hook REG(a0), APTR popasl REG(a2), struct TagItem *taglist REG(a1));
+        static ULONG ASM PopupStop(struct Hook *hook REG(a0), APTR popasl REG(a2), struct ScreenModeRequester *smreq REG(a1));
+        void SetDisplayName(ULONG displayid);
+        std::vector<struct TagItem> _ScreenModeTags;
+        std::string _strDisplay;
+	};
     std::list<Level *> _stack;
     int _irecurse;
     Level **_pGrower;
     Level *_pRoot;
-//	Level _root;
+
+    // used to change asignment by LGroupSubMap.
+    struct ReAssigner : public ASerializer {
+        ReAssigner(Level &group);
+        void operator()(const char *sMemberName, ASerializable &subconf, int flags=0) override;
+        void operator()(const char *sMemberName, std::string &str, int flags=0) override;
+        void operator()(const char *sMemberName, int &v, int min, int max) override;
+        void operator()(const char *sMemberName, int &v,const std::vector<std::string> &values) override;
+        void operator()(const char *sMemberName, bool &v) override;
+        void operator()(const char *sMemberName, ULONG_SCREENMODEID &v) override;
+        void operator()(const char *sMemberName, AStringMap &m) override;
+        std::list<Level *> _stack;
+    };
+
 };
 
 

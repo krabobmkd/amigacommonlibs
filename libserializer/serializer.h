@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <map>
-#include <memory>
 #include <string>
 
 struct ASerializer;
@@ -16,9 +15,14 @@ struct ASerializer;
 
 struct ASerializable {
     virtual void serialize(ASerializer &serializer)=0;
+    // - - - - - - - - - to apply rules...
+    virtual void valueUpdated(std::string upatedValue) {}
+    virtual bool isDefault() { return false; }
 };
 
+// specific serializable types
 typedef std::string strcomment;
+typedef unsigned int ULONG_SCREENMODEID;
 
 struct ASerializer {
 
@@ -30,10 +34,51 @@ struct ASerializer {
     virtual void operator()(const char *sMemberName, int &v,const std::vector<std::string> &values) = 0;
     // for checkbox
     virtual void operator()(const char *sMemberName, bool &v) = 0;
+    virtual void operator()(const char *sMemberName, ULONG_SCREENMODEID &v) = 0;
    //re? virtual void operator()(const char *sMemberName, strcomment &str) = 0;
-    // per known mode.
-//    virtual void operator()(const char *sMemberName,
-//            std::map<std::string,std::unique_ptr<ASerializable>> &confmap) = 0;
+
+
+    // - - - - -  serialize abstract class string map - - - - -
+    // first use to serialize confs per screen mode.
+    struct AStringMap {
+        virtual void clear() = 0;
+        virtual bool contains(const char *pid)=0;
+        virtual ASerializable &get(const char *pid)=0;
+        virtual void remove(const char *pid) = 0;
+        // simple way to iterate
+        virtual void begin() = 0;
+        virtual std::pair<std::string,ASerializable *> getNext() = 0;
+    };
+    virtual void operator()(const char *sMemberName, AStringMap &m) = 0;
+
+     template<class ASER>
+    struct StringMap : public AStringMap {
+        StringMap(std::map<std::string,ASER> &v) : AStringMap() ,_v(v){}
+         void clear() override { _v.clear(); }
+        bool contains(const char *pid) override { return (_v.find(pid)!=_v.end()); }
+        ASerializable &get(const char *pid) override { return (ASerializable &)_v[pid]; }
+        void remove(const char *pid) override {
+            typename std::map<std::string,ASER>::iterator fit = _v.find(pid);
+            if(fit != _v.end()) _v.erase(fit);
+        }
+        void begin() override { _it = _v.begin(); }
+        std::pair<std::string,ASerializable *> getNext() override {
+            if(_it == _v.end()) return std::make_pair<std::string,ASerializable *>("",NULL);
+            typename std::pair<const std::string,ASER> &p = *_it++;
+            return {p.first,(ASerializable *)&p.second};
+                    //std::make_pair<std::string,ASerializable *>(p.first,(ASerializable *)&p.second);
+        }
+        std::map<std::string,ASER> &_v;
+        typename std::map<std::string,ASER>::iterator _it;
+    };
+
+//    template<class ASER>
+//    void operator()(const char *sMemberName,std::map<std::string,ASER> &v) {
+
+//        StringMap<ASER> m(v);
+//        this->operator()(sMemberName, (AStringMap &)m);
+//    }
+
 };
 
 
