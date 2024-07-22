@@ -10,7 +10,12 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "macros.h"
+
+#ifdef __GNUC__
+//#define ASM __saveds
+#define ASM
+#define REG(r) __asm(#r)
+#endif
 
 extern "C" {
     #include <libraries/mui.h>
