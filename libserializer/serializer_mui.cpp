@@ -10,7 +10,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "macros.h"
+#include "asmmacros.h"
 
 extern "C" {
     #include <libraries/mui.h>
