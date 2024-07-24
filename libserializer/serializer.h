@@ -38,7 +38,7 @@ struct ASerializer {
    //re? virtual void operator()(const char *sMemberName, strcomment &str) = 0;
 
     // - - - -rules
-    virtual void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer)> condition) {}
+    virtual void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition) {}
     virtual void enable(std::string memberUrl, int enable) {}
     // - - - - -  serialize abstract class string map - - - - -
     // first use to serialize confs per screen mode.

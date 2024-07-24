@@ -163,7 +163,7 @@ void MUISerializer::operator()(const char *sMemberName, AStringMap &confmap)
 
 }
 // - - - -rules
-void MUISerializer::listenChange(const char *sMemberName,std::function<void(ASerializer &serializer)> condition)
+void MUISerializer::listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition)
 {
 // _rules
     printf("MUISerializer::listenChange:%s\n",sMemberName);
@@ -183,17 +183,7 @@ void MUISerializer::enable(std::string memberUrl, int enable)
     Level *p = getByUrl(memberUrl);
     printf("getByUrl:%s %08x v:%d\n",memberUrl.c_str(),(int)p,enable);
     if(!p || !p->_Object) return;
-     SetAttrs(p->_Object, MUIA_Disabled,enable,TAG_DONE);
-    /*
-    std::list<Level *>::iterator it = _stack.begin();
-    while(it != _stack.end())
-    {
-        Level *pl = *it++;
-        if(pl && pl->_pMemberName && strcmp(sMemberName, pl->_pMemberName)==0) {
-            pl->_rules.push_back(condition);
-            break;
-        }
-    }*/
+     SetAttrs(p->_Object, MUIA_Disabled,enable?0:1,TAG_DONE);
 }
 struct MUISerializer::Level *MUISerializer::getByUrl(const std::string &memberUrl)
 {
@@ -319,7 +309,6 @@ MUISerializer::Level *MUISerializer::Level::getChild(const char *pMemberName)
 }
 void MUISerializer::Level::update()
 {
-    for(function<void(ASerializer &serializer)> &func : _rules) func(_ser);
 }
 // - - - - - - - - - - - - - - -
 MUISerializer::LTabs::LTabs(MUISerializer &ser) : LGroup(ser,0)
@@ -467,6 +456,7 @@ void MUISerializer::LSwitchGroup::setGroup(const char *pid)
     // change title name
      SetAttrs(_Object, MUIA_Disabled, FALSE,TAG_DONE);
      SetAttrs(_Object,MUIA_FrameTitle,(ULONG)_displayName.c_str(),TAG_DONE);
+     update();
 }
 // - - - - - - - - - - - - - - -
 
@@ -613,11 +603,16 @@ void MUISerializer::LCycle::compile()
 void MUISerializer::LCycle::update()
 {
     if(!_Object) return;
-    Level::update();
+//    Level::update();
     int v = *_value;
     if(v<0) v=0;
     if(_values.size()>0 && v>=(int)_values.size()) v =(int)_values.size()-1;
     SetAttrs(_Object,MUIA_Cycle_Active,v,TAG_DONE);
+
+    for(function<void(ASerializer &serializer, void *p)> &func : _rules)
+    {
+        func(_ser,_value);
+    }
 }
 // - - - - - - - - - - - - - - -
 MUISerializer::LCheckBox::LCheckBox(MUISerializer &ser,bool &value): Level(ser)
@@ -826,7 +821,7 @@ void MUISerializer::ReAssigner::operator()(const char *sMemberName, AStringMap &
 {
     // todo... shouldnt be recursive...
 }
-void MUISerializer::ReAssigner::listenChange(const char *sMemberName,std::function<void(ASerializer &serializer)> condition)
+void MUISerializer::ReAssigner::listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition)
 {
     printf("MUISerializer::listenChange:%s\n",sMemberName);
     std::list<Level *>::reverse_iterator rit = _stack.rbegin();
@@ -835,6 +830,7 @@ void MUISerializer::ReAssigner::listenChange(const char *sMemberName,std::functi
         Level *pl = *rit++;
         if(pl && pl->_pMemberName && strcmp(sMemberName, pl->_pMemberName)==0) {
                 printf("push condition\n");
+            pl->_rules.clear();
             pl->_rules.push_back(condition);
             pl->update();
             break;

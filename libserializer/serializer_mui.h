@@ -37,7 +37,7 @@ struct MUISerializer : public ASerializer {
     void operator()(const char *sMemberName, AStringMap &m) override;
 
     // - - - -rules
-    void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer)> condition) override;
+    void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition) override;
     void enable(std::string memberUrl, int enable) override;
 
 	// - - - - - -	
@@ -63,7 +63,7 @@ protected:
         virtual void update();
         Level *getChild(const char *pMemberName);
         // rules to apply at update.
-        std::vector<std::function<void(ASerializer &serializer)>> _rules;
+        std::vector<std::function<void(ASerializer &serializer, void *p)>> _rules;
 	};
     struct LGroup : public Level {
         LGroup(MUISerializer &ser,int flgs);
@@ -162,7 +162,7 @@ protected:
         void operator()(const char *sMemberName, ULONG_SCREENMODEID &v) override;
         void operator()(const char *sMemberName, AStringMap &m) override;
 
-        void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer)> condition) override;
+        void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition) override;
         //void enable(std::string memberUrl, int enable) override;
         std::list<Level *> _stack;
     };
