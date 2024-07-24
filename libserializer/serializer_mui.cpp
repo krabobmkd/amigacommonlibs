@@ -57,10 +57,10 @@ void MUISerializer::operator()(const char *sMemberName, ASerializable &subconf, 
     // let's add a sub level.
     if(_irecurse==0)
     {
-        plevel = new LTabs();
+        plevel = new LTabs(*this);
     } else
     {
-        plevel = new LGroup(flags);
+        plevel = new LGroup(*this,flags);
     }
     if(!plevel) return;
 
@@ -83,7 +83,7 @@ void MUISerializer::operator()(const char *sMemberName, ASerializable &subconf, 
 }
 void MUISerializer::operator()(const char *sMemberName, std::string &str,int flags)
 {
-    LString *plevel = new LString(str,flags);
+    LString *plevel = new LString(*this,str,flags);
     _stack.push_back(plevel);
 
     plevel->_pMemberName = sMemberName;
@@ -95,7 +95,7 @@ void MUISerializer::operator()(const char *sMemberName, std::string &str,int fla
 // for sliders
 void MUISerializer::operator()(const char *sMemberName, int &v, int min, int max)
 {
-    LSlider *plevel = new LSlider(v,min,max);
+    LSlider *plevel = new LSlider(*this,v,min,max);
     _stack.push_back(plevel);
 
     plevel->_pMemberName = sMemberName;
@@ -107,7 +107,7 @@ void MUISerializer::operator()(const char *sMemberName, int &v, int min, int max
 // for cycling
 void MUISerializer::operator()(const char *sMemberName, int &v,const std::vector<std::string> &values)
 {
-	 LCycle *plevel = new LCycle(v,values);
+	 LCycle *plevel = new LCycle(*this,v,values);
     _stack.push_back(plevel);
 
     plevel->_pMemberName = sMemberName;
@@ -118,7 +118,7 @@ void MUISerializer::operator()(const char *sMemberName, int &v,const std::vector
 // for checkbox
 void MUISerializer::operator()(const char *sMemberName, bool &v) 
 {
-    LCheckBox *plevel = new LCheckBox(v);
+    LCheckBox *plevel = new LCheckBox(*this,v);
     _stack.push_back(plevel);
 
     plevel->_pMemberName = sMemberName;
@@ -129,7 +129,7 @@ void MUISerializer::operator()(const char *sMemberName, bool &v)
 // for screen ids
 void MUISerializer::operator()(const char *sMemberName, ULONG_SCREENMODEID &v)
 {
-    LScreenModeReq *plevel = new LScreenModeReq(v);
+    LScreenModeReq *plevel = new LScreenModeReq(*this,v);
     _stack.push_back(plevel);
 
     plevel->_pMemberName = sMemberName;
@@ -144,7 +144,7 @@ void MUISerializer::operator()(const char *sMemberName, AStringMap &confmap)
 
     Level *plevel;
     // let's add a sub level.
-    plevel = new LSwitchGroup(0,confmap);
+    plevel = new LSwitchGroup(*this,0,confmap);
     if(!plevel) return;
 
     _stack.push_back(plevel);
@@ -162,6 +162,61 @@ void MUISerializer::operator()(const char *sMemberName, AStringMap &confmap)
     _pGrower = &plevel->_pNextBrother;
 
 }
+// - - - -rules
+void MUISerializer::listenChange(const char *sMemberName,std::function<void(ASerializer &serializer)> condition)
+{
+// _rules
+    printf("MUISerializer::listenChange:%s\n",sMemberName);
+    std::list<Level *>::reverse_iterator rit = _stack.rbegin();
+    while(rit != _stack.rend())
+    {
+        Level *pl = *rit++;
+        if(pl && pl->_pMemberName && strcmp(sMemberName, pl->_pMemberName)==0) {
+                printf("push condition\n");
+            pl->_rules.push_back(condition);
+            break;
+        }
+    }
+}
+void MUISerializer::enable(std::string memberUrl, int enable)
+{
+    Level *p = getByUrl(memberUrl);
+    printf("getByUrl:%s %08x v:%d\n",memberUrl.c_str(),(int)p,enable);
+    if(!p || !p->_Object) return;
+     SetAttrs(p->_Object, MUIA_Disabled,enable,TAG_DONE);
+    /*
+    std::list<Level *>::iterator it = _stack.begin();
+    while(it != _stack.end())
+    {
+        Level *pl = *it++;
+        if(pl && pl->_pMemberName && strcmp(sMemberName, pl->_pMemberName)==0) {
+            pl->_rules.push_back(condition);
+            break;
+        }
+    }*/
+}
+struct MUISerializer::Level *MUISerializer::getByUrl(const std::string &memberUrl)
+{
+    struct Level *p = _pRoot;
+    if(!p) return NULL;
+    size_t i=0;
+    while(i != string::npos)
+    {
+        size_t j=memberUrl.find(".",i);
+
+        string str;
+        if(j != string::npos) str = memberUrl.substr(i,(j-i));
+        else str = memberUrl.substr(i);
+        p = p->getChild(str.c_str());
+
+        if(!p) return NULL;
+        if(j != string::npos) i = j+1;
+        else i=j;
+    }
+    return p;
+
+}
+
 // -----------------------------------------------------------------------------
 // -------   MUISerializer compile function to finalize bridge objects   --------
 // ----------------------------------------------------------------------------
@@ -169,7 +224,7 @@ void MUISerializer::operator()(const char *sMemberName, AStringMap &confmap)
 void MUISerializer::insertFirstPanel(Object *pPanel,const char *pName)
 {
     if(!_pRoot) return;
-    Level *plevel = new Level();
+    Level *plevel = new Level(*this);
     if(!plevel) return;
 
     _stack.insert(_stack.begin(),plevel); // maybe not exact place but would work and will be deleted.
@@ -240,8 +295,9 @@ void MUISerializer::selectGroup(std::string groupurl,std::string selection)
 // ----------------------------------------------------------------------------
 // - - - - - - - - - - - - - - -
 // post compilation of mui gadgets...
-MUISerializer::Level::Level()
- : _Object(NULL)
+MUISerializer::Level::Level(MUISerializer &ser)
+ : _ser(ser)
+ , _Object(NULL)
  , _pMemberName(NULL)
  , _pFirstChild(NULL)
  , _pNextBrother(NULL)
@@ -261,8 +317,12 @@ MUISerializer::Level *MUISerializer::Level::getChild(const char *pMemberName)
     }
     return NULL;
 }
+void MUISerializer::Level::update()
+{
+    for(function<void(ASerializer &serializer)> &func : _rules) func(_ser);
+}
 // - - - - - - - - - - - - - - -
-MUISerializer::LTabs::LTabs() : LGroup(0)
+MUISerializer::LTabs::LTabs(MUISerializer &ser) : LGroup(ser,0)
 {
 
 }
@@ -311,7 +371,7 @@ void MUISerializer::LTabs::compile()
 
 }
 // - - - - - - - - - - - - - - -
-MUISerializer::LGroup::LGroup(int flgs) : Level(), _flgs(flgs)
+MUISerializer::LGroup::LGroup(MUISerializer &ser,int flgs) : Level(ser), _flgs(flgs)
 {
 }
 void MUISerializer::LGroup::compile()
@@ -373,7 +433,7 @@ void MUISerializer::LGroup::update()
     }
 }
 // - - - - - - - - - - - - - - -
-MUISerializer::LSwitchGroup::LSwitchGroup(int flgs,AStringMap &map) : LGroup(flgs)
+MUISerializer::LSwitchGroup::LSwitchGroup(MUISerializer &ser,int flgs,AStringMap &map) : LGroup(ser,flgs)
   ,_map(&map), _displayName("(select a driver)")
 {
 
@@ -410,7 +470,7 @@ void MUISerializer::LSwitchGroup::setGroup(const char *pid)
 }
 // - - - - - - - - - - - - - - -
 
-MUISerializer::LString::LString(std::string &str,int flgs): Level()
+MUISerializer::LString::LString(MUISerializer &ser,std::string &str,int flgs): Level(ser)
  , _str(&str),_flgs(flgs),_STRING_Path(NULL)
 {
 
@@ -460,6 +520,7 @@ void MUISerializer::LString::compile()
 void  MUISerializer::LString::update()
 {
     if(!_str || !_Object || !_STRING_Path) return;
+    Level::update();
    // printf("LString::update:%s\n",_str.c_str());
     SetAttrs(_STRING_Path,MUIA_String_Contents,(ULONG)_str->c_str(),TAG_DONE);
 }
@@ -468,11 +529,15 @@ ULONG ASM MUISerializer::LSlider::HNotify(struct Hook *hook REG(a0), APTR obj RE
 {
     if(!hook || !par) return 0;
     LSlider *plevel = (LSlider *)hook->h_Data;
-    *plevel->_value = *par;
+    if(*plevel->_value != *par)
+    {
+        *plevel->_value = *par;
+        plevel->update();
+    }
    // printf("LSlider::HNotify:%d\n",*par);
    return 0;
 }
-MUISerializer::LSlider::LSlider(int &value,int min,int max): Level()
+MUISerializer::LSlider::LSlider(MUISerializer &ser,int &value,int min,int max): Level(ser)
  , _value(&value),_min(min),_max(max)
 {
 
@@ -499,11 +564,12 @@ void MUISerializer::LSlider::compile()
 }
 void MUISerializer::LSlider::update()
 {
-    if(!_Object) return;
+    if(!_Object) return;    
+    Level::update();
     SetAttrs(_Object,MUIA_Slider_Level,*_value,TAG_DONE);
 }
 // - - - - - - - - - - - - - - -
-MUISerializer::LCycle::LCycle(int &value,const std::vector<std::string> &values): Level()
+MUISerializer::LCycle::LCycle(MUISerializer &ser,int &value,const std::vector<std::string> &values): Level(ser)
  ,_value(&value),_values(values)
 {
     _valuesptr.reserve(_values.size()+1);
@@ -515,7 +581,11 @@ ULONG ASM MUISerializer::LCycle::HNotify(struct Hook *hook REG(a0), APTR obj REG
 {
     if(!hook || !par) return 0;
     MUISerializer::LCycle *plevel = (MUISerializer::LCycle *)hook->h_Data;
-    *plevel->_value = *par;
+    if(*plevel->_value != *par)
+    {
+        *plevel->_value = *par;
+        plevel->update();
+    }
    return 0;
   //  printf("LCycle::HNotify:%d\n",(int)plevel->_value);
 }
@@ -543,13 +613,14 @@ void MUISerializer::LCycle::compile()
 void MUISerializer::LCycle::update()
 {
     if(!_Object) return;
+    Level::update();
     int v = *_value;
     if(v<0) v=0;
     if(_values.size()>0 && v>=(int)_values.size()) v =(int)_values.size()-1;
     SetAttrs(_Object,MUIA_Cycle_Active,v,TAG_DONE);
 }
 // - - - - - - - - - - - - - - -
-MUISerializer::LCheckBox::LCheckBox(bool &value): Level()
+MUISerializer::LCheckBox::LCheckBox(MUISerializer &ser,bool &value): Level(ser)
 , _value(&value)
 {
 
@@ -582,6 +653,7 @@ void MUISerializer::LCheckBox::compile()
 void MUISerializer::LCheckBox::update()
 {
     if(!_Object || !_value) return;
+    Level::update();
     SetAttrs(_Object,MUIA_Selected,(ULONG)(*_value?1:0),TAG_DONE);
 
 }
@@ -599,7 +671,7 @@ ULONG ASM MUISerializer::LCheckBox::HNotify(
 }
 // ---------------------
 
-MUISerializer::LScreenModeReq::LScreenModeReq(ULONG_SCREENMODEID &value) : Level()
+MUISerializer::LScreenModeReq::LScreenModeReq(MUISerializer &ser,ULONG_SCREENMODEID &value) : Level(ser)
  ,_value(&value)
 {
     _ScreenModeTags =
@@ -638,6 +710,7 @@ void MUISerializer::LScreenModeReq::compile()
 void MUISerializer::LScreenModeReq::update()
 {
     if(!_value) return;
+    Level::update();
     _ScreenModeTags[SMT_DISPLAYID].ti_Data = *_value;
     SetDisplayName(*_value);
 }
@@ -753,3 +826,25 @@ void MUISerializer::ReAssigner::operator()(const char *sMemberName, AStringMap &
 {
     // todo... shouldnt be recursive...
 }
+void MUISerializer::ReAssigner::listenChange(const char *sMemberName,std::function<void(ASerializer &serializer)> condition)
+{
+    printf("MUISerializer::listenChange:%s\n",sMemberName);
+    std::list<Level *>::reverse_iterator rit = _stack.rbegin();
+    while(rit != _stack.rend())
+    {
+        Level *pl = *rit++;
+        if(pl && pl->_pMemberName && strcmp(sMemberName, pl->_pMemberName)==0) {
+                printf("push condition\n");
+            pl->_rules.push_back(condition);
+            pl->update();
+            break;
+        }
+    }
+}
+//void MUISerializer::ReAssigner::enable(std::string memberUrl, int enable)
+//{
+//    Level *p = getByUrl(memberUrl);
+//    printf("getByUrl:%s %08x v:%d\n",memberUrl.c_str(),(int)p,enable);
+//    if(!p || !p->_Object) return;
+//     SetAttrs(p->_Object, MUIA_Disabled,enable,TAG_DONE);
+//}

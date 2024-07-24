@@ -4,7 +4,7 @@
 #include <vector>
 #include <map>
 #include <string>
-
+#include <functional>
 struct ASerializer;
 
 #define SERFLAG_STRING_ISPATH 1
@@ -37,7 +37,9 @@ struct ASerializer {
     virtual void operator()(const char *sMemberName, ULONG_SCREENMODEID &v) = 0;
    //re? virtual void operator()(const char *sMemberName, strcomment &str) = 0;
 
-
+    // - - - -rules
+    virtual void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer)> condition) {}
+    virtual void enable(std::string memberUrl, int enable) {}
     // - - - - -  serialize abstract class string map - - - - -
     // first use to serialize confs per screen mode.
     struct AStringMap {

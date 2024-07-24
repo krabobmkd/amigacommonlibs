@@ -36,6 +36,10 @@ struct MUISerializer : public ASerializer {
 	// serialize abstract class string map
     void operator()(const char *sMemberName, AStringMap &m) override;
 
+    // - - - -rules
+    void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer)> condition) override;
+    void enable(std::string memberUrl, int enable) override;
+
 	// - - - - - -	
     // allow insertion of tabs before compile...
     void insertFirstPanel(Object *pPanel,const char *pName);
@@ -47,34 +51,36 @@ struct MUISerializer : public ASerializer {
     // switch LGroupSubMap
     void selectGroup(std::string groupurl,std::string selection);
 
-protected:
-
+protected:    
 	struct Level {
-    	Level();
+    	Level(MUISerializer &ser);
+        MUISerializer &_ser;
         Object *_Object; // if NULL, need compilation at end, else leaf are done at once
         const char *_pMemberName;
         struct Level *_pFirstChild;
         struct Level *_pNextBrother;
         virtual void compile() {}
-        virtual void update() {}
+        virtual void update();
         Level *getChild(const char *pMemberName);
+        // rules to apply at update.
+        std::vector<std::function<void(ASerializer &serializer)>> _rules;
 	};
     struct LGroup : public Level {
-        LGroup(int flgs);
+        LGroup(MUISerializer &ser,int flgs);
         void compile() override;
         void update() override;
         virtual Object *compileOuterFrame(Object *pinnerGroup);
         int _flgs;
 	};
     struct LSwitchGroup : public LGroup {
-        LSwitchGroup(int flgs,AStringMap &map);
+        LSwitchGroup(MUISerializer &ser,int flgs,AStringMap &map);
         Object *compileOuterFrame(Object *pinnerGroup) override;
         void setGroup(const char *pid);
         AStringMap *_map;
         std::string _displayName;
 	};
     struct LTabs : public LGroup {
-        LTabs();
+        LTabs(MUISerializer &ser);
         void compile() override;
         std::vector<const char *> _registerTitles;
 	};
@@ -88,7 +94,7 @@ protected:
 //	};
     struct LString : public Level {
         static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2),const char **par REG(a1));
-        LString(std::string &str, int flgs);
+        LString(MUISerializer &ser,std::string &str, int flgs);
         void compile() override;
         void update() override;
         std::string *_str;
@@ -98,7 +104,7 @@ protected:
 	};
     struct LSlider : public Level {
         static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1));
-        LSlider(int &value,int min,int max);
+        LSlider(MUISerializer &ser,int &value,int min,int max);
         void compile() override;
         void update() override;
         int *_value;
@@ -107,7 +113,7 @@ protected:
 	};
     struct LCycle : public Level {
         static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1));
-        LCycle(int &value,const std::vector<std::string> &values);
+        LCycle(MUISerializer &ser,int &value,const std::vector<std::string> &values);
         void compile() override;
         void update() override;
         int *_value;
@@ -116,7 +122,7 @@ protected:
         struct Hook _notifyHook;
 	};
     struct LCheckBox : public Level {
-        LCheckBox(bool &value);
+        LCheckBox(MUISerializer &ser,bool &value);
         void compile() override;
         void update() override;
         bool *_value;
@@ -124,7 +130,7 @@ protected:
         struct Hook _notifyHook;
 	};
     struct LScreenModeReq : public Level {
-        LScreenModeReq(ULONG_SCREENMODEID &value);
+        LScreenModeReq(MUISerializer &ser,ULONG_SCREENMODEID &value);
         void compile() override;
         void update() override;
         ULONG_SCREENMODEID *_value;
@@ -143,6 +149,8 @@ protected:
     Level **_pGrower;
     Level *_pRoot;
 
+    struct Level *getByUrl(const std::string &memberUrl);
+
     // used to change asignment by LGroupSubMap.
     struct ReAssigner : public ASerializer {
         ReAssigner(Level &group);
@@ -153,6 +161,9 @@ protected:
         void operator()(const char *sMemberName, bool &v) override;
         void operator()(const char *sMemberName, ULONG_SCREENMODEID &v) override;
         void operator()(const char *sMemberName, AStringMap &m) override;
+
+        void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer)> condition) override;
+        //void enable(std::string memberUrl, int enable) override;
         std::list<Level *> _stack;
     };
 
