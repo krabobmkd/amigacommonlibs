@@ -22,6 +22,7 @@ struct ASerializable {
 
 // specific serializable types
 typedef std::string strcomment;
+typedef std::string strText;
 typedef unsigned int ULONG_SCREENMODEID;
 
 struct ASerializer {
@@ -36,6 +37,7 @@ struct ASerializer {
     virtual void operator()(const char *sMemberName, bool &v) = 0;
     virtual void operator()(const char *sMemberName, ULONG_SCREENMODEID &v) = 0;
    //re? virtual void operator()(const char *sMemberName, strcomment &str) = 0;
+    virtual void operator()(const char *sMemberName, strText &str) {}
 
     // - - - -rules
     virtual void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition) {}

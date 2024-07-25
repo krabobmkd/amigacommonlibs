@@ -36,6 +36,8 @@ struct MUISerializer : public ASerializer {
 	// serialize abstract class string map
     void operator()(const char *sMemberName, AStringMap &m) override;
 
+    void operator()(const char *sMemberName, strText &str) override;
+
     // - - - -rules
     void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition) override;
     void enable(std::string memberUrl, int enable) override;
@@ -78,6 +80,7 @@ protected:
         void setGroup(const char *pid);
         AStringMap *_map;
         std::string _displayName;
+        Object *_SelectedItemText;
 	};
     struct LTabs : public LGroup {
         LTabs(MUISerializer &ser);
@@ -85,13 +88,6 @@ protected:
         std::vector<const char *> _registerTitles;
 	};
 
-//    struct LSwitchGroup : public Level {
-//        LSwitchGroup();
-//        void compile() override;
-//        void update() override;
-//        void setTo(const char *pGroupName);
-//        std::map<std::string,std::unique_ptr<ASerializable>> *_confmap;
-//	};
     struct LString : public Level {
         static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2),const char **par REG(a1));
         LString(MUISerializer &ser,std::string &str, int flgs);
@@ -144,6 +140,13 @@ protected:
         std::vector<struct TagItem> _ScreenModeTags;
         std::string _strDisplay;
 	};
+    struct LInfoText : public Level {
+        LInfoText(MUISerializer &ser,strText &str, int flgs);
+        void compile() override;
+        strText *_str;
+	};
+
+
     std::list<Level *> _stack;
     int _irecurse;
     Level **_pGrower;
@@ -163,7 +166,6 @@ protected:
         void operator()(const char *sMemberName, AStringMap &m) override;
 
         void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition) override;
-        //void enable(std::string memberUrl, int enable) override;
         std::list<Level *> _stack;
     };
 

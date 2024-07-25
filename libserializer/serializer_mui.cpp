@@ -162,17 +162,24 @@ void MUISerializer::operator()(const char *sMemberName, AStringMap &confmap)
     _pGrower = &plevel->_pNextBrother;
 
 }
+void MUISerializer::operator()(const char *sMemberName, strText &str)
+{
+    Level *plevel = new LInfoText(*this,str,0);
+    _stack.push_back(plevel);
+
+    plevel->_pMemberName = sMemberName;
+
+    *_pGrower = plevel;
+    _pGrower = &plevel->_pNextBrother;
+}
 // - - - -rules
 void MUISerializer::listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition)
 {
-// _rules
-    printf("MUISerializer::listenChange:%s\n",sMemberName);
     std::list<Level *>::reverse_iterator rit = _stack.rbegin();
     while(rit != _stack.rend())
     {
         Level *pl = *rit++;
         if(pl && pl->_pMemberName && strcmp(sMemberName, pl->_pMemberName)==0) {
-                printf("push condition\n");
             pl->_rules.push_back(condition);
             break;
         }
@@ -181,7 +188,6 @@ void MUISerializer::listenChange(const char *sMemberName,std::function<void(ASer
 void MUISerializer::enable(std::string memberUrl, int enable)
 {
     Level *p = getByUrl(memberUrl);
-    printf("getByUrl:%s %08x v:%d\n",memberUrl.c_str(),(int)p,enable);
     if(!p || !p->_Object) return;
      SetAttrs(p->_Object, MUIA_Disabled,enable?0:1,TAG_DONE);
 }
@@ -318,24 +324,18 @@ MUISerializer::LTabs::LTabs(MUISerializer &ser) : LGroup(ser,0)
 
 void MUISerializer::LTabs::compile()
 {
- //   printf("LTabs::compile\n");
-  //  std::vector<const char *> registerTitles;
     _registerTitles.clear();
 
     Level *plevel = _pFirstChild;
     while(plevel)
     {
-      //  printf("name: plevel->_Object:%08x name:%s\n",(int)plevel->_Object,plevel->_pMemberName);
-
          if(plevel->_Object)
          {
-         //   printf("name:%s\n",plevel->_pMemberName);
             _registerTitles.push_back(plevel->_pMemberName);
          }
         plevel = plevel->_pNextBrother;
     }
     _registerTitles.push_back(NULL);
-  //  printf("end names\n");
 
     std::vector<ULONG> tagitems={
         MUIA_Register_Titles,(ULONG)_registerTitles.data()
@@ -346,17 +346,14 @@ void MUISerializer::LTabs::compile()
     {
         if(plevel->_Object)
         {
-      //  printf("add child:%s\n",plevel->_pMemberName);
             tagitems.push_back(Child);
             tagitems.push_back((ULONG)plevel->_Object);
         }
         plevel = plevel->_pNextBrother;
     }
-  //  printf("end childs\n");
     tagitems.push_back(TAG_DONE);
 
     _Object = MUI_NewObjectA(MUIC_Register, (struct TagItem *) tagitems.data());
-
 
 }
 // - - - - - - - - - - - - - - -
@@ -423,24 +420,23 @@ void MUISerializer::LGroup::update()
 }
 // - - - - - - - - - - - - - - -
 MUISerializer::LSwitchGroup::LSwitchGroup(MUISerializer &ser,int flgs,AStringMap &map) : LGroup(ser,flgs)
-  ,_map(&map), _displayName("(select a driver)")
+  ,_map(&map), _displayName("(select a driver)"),_SelectedItemText(NULL)
 {
 
 }
 Object *MUISerializer::LSwitchGroup::compileOuterFrame(Object *pinnerGroup)
 {
+    _SelectedItemText = MUI_NewObject(MUIC_Text,
+                 //   TextFrame,
+                  //  MUIA_Background, MUII_TextBack,
+                    MUIA_Text_Contents,(ULONG)"...",
+                  TAG_DONE);
+
     Object *obj = MUI_NewObject(MUIC_Group,
             GroupFrameT((ULONG)_displayName.c_str()),
             MUIA_Disabled, TRUE,
+            Child,(ULONG)(_SelectedItemText),
             Child,(ULONG)pinnerGroup,
-//        Child, (ULONG)HVSpace,
-//        Child, (ULONG)MUI_NewObject(MUIC_Group,MUIA_Group_Horiz,TRUE,
-//            Child, (ULONG)HSpace(0),
-//            Child,(ULONG)pinnerGroup,
-//            Child, (ULONG)HSpace(0),
-//            TAG_DONE
-//            ),
-//        Child, (ULONG)HVSpace,
         TAG_DONE
         );
     return obj;
@@ -455,7 +451,12 @@ void MUISerializer::LSwitchGroup::setGroup(const char *pid)
     actual.serialize(reassigner); // change pointed data and does updates.
     // change title name
      SetAttrs(_Object, MUIA_Disabled, FALSE,TAG_DONE);
-     SetAttrs(_Object,MUIA_FrameTitle,(ULONG)_displayName.c_str(),TAG_DONE);
+     SetAttrs(_Object,MUIA_FrameTitle,(ULONG)"",TAG_DONE);
+     if(_SelectedItemText)
+     {
+        SetAttrs(_SelectedItemText,MUIA_Text_Contents,(ULONG)_displayName.c_str(),TAG_DONE);
+     }
+
      update();
 }
 // - - - - - - - - - - - - - - -
@@ -476,7 +477,6 @@ ULONG ASM MUISerializer::LString::HNotify(struct Hook *hook REG(a0), APTR obj RE
 }
 void MUISerializer::LString::compile()
 {
-  //  printf("LString::compile\n");
     if(_flgs & SERFLAG_STRING_ISPATH)
     {
         // if manage path, have a requester and all.
@@ -511,7 +511,6 @@ void  MUISerializer::LString::update()
 {
     if(!_str || !_Object || !_STRING_Path) return;
     Level::update();
-   // printf("LString::update:%s\n",_str.c_str());
     SetAttrs(_STRING_Path,MUIA_String_Contents,(ULONG)_str->c_str(),TAG_DONE);
 }
 // - - - - - - - - - - - - - - -
@@ -524,7 +523,6 @@ ULONG ASM MUISerializer::LSlider::HNotify(struct Hook *hook REG(a0), APTR obj RE
         *plevel->_value = *par;
         plevel->update();
     }
-   // printf("LSlider::HNotify:%d\n",*par);
    return 0;
 }
 MUISerializer::LSlider::LSlider(MUISerializer &ser,int &value,int min,int max): Level(ser)
@@ -577,13 +575,10 @@ ULONG ASM MUISerializer::LCycle::HNotify(struct Hook *hook REG(a0), APTR obj REG
         plevel->update();
     }
    return 0;
-  //  printf("LCycle::HNotify:%d\n",(int)plevel->_value);
 }
 
 void MUISerializer::LCycle::compile()
 {
-   // printf("LCycle::compile _values size:%d\n",(int)_values.size());
-
     _Object = MUI_NewObject(MUIC_Cycle,MUIA_Cycle_Entries,(ULONG)_valuesptr.data(),TAG_DONE);
     if(_Object)
     {
@@ -672,8 +667,6 @@ MUISerializer::LScreenModeReq::LScreenModeReq(MUISerializer &ser,ULONG_SCREENMOD
     _ScreenModeTags =
     {
       { ASLSM_InitialDisplayID,   0 },
-//      { ASLSM_InitialDisplayDepth,  8 },
-//      { ASLSM_DoDepth,        TRUE  },
       { TAG_END,0 }
     };
 #define SMT_DISPLAYID 0
@@ -697,7 +690,6 @@ void MUISerializer::LScreenModeReq::compile()
               MUIA_Popasl_Type,     ASL_ScreenModeRequest,
               MUIA_Popasl_StartHook,  (ULONG) &_ScreenModeStartHook,
               MUIA_Popasl_StopHook, (ULONG) &_ScreenModeStopHook,
-    //          MUIA_Disabled, (ULONG) (/*Config[CFG_SCREENTYPE] != CFGST_CUSTOM*/1),
             TAG_DONE);
 
 
@@ -755,15 +747,25 @@ void MUISerializer::LScreenModeReq::SetDisplayName(ULONG displayid)
     {
         _strDisplay = (const char *) DisplayNameInfo.Name;
     }
-    // doesnt fit, and no one care.
-//    char temp[16];//    char temp[16];
-    //    snprintf(temp,15," (0x%08x)",(int)displayid);
-    //    _strDisplay += temp;
-//    snprintf(temp,15," (0x%08x)",(int)displayid);
-//    _strDisplay += temp;
   }
 
   SetAttrs(_DisplayName, MUIA_Text_Contents, (ULONG) _strDisplay.c_str(),TAG_DONE);
+}
+// *- -  -- - -
+MUISerializer::LInfoText::LInfoText(MUISerializer &ser,strText &str, int flgs)
+ : Level(ser)
+, _str(&str)
+{}
+void MUISerializer::LInfoText::compile()
+{
+    _Object = MUI_NewObject(MUIC_Text,
+                    MUIA_Text_Contents,(ULONG)"...",
+                  TAG_DONE);
+    if(_Object && _str)
+    {
+        SetAttrs(_Object, MUIA_Text_Contents, (ULONG)_str->c_str(),TAG_DONE);
+    }
+
 }
 
 // - - - - - - - - - - - - - - -
@@ -837,10 +839,4 @@ void MUISerializer::ReAssigner::listenChange(const char *sMemberName,std::functi
         }
     }
 }
-//void MUISerializer::ReAssigner::enable(std::string memberUrl, int enable)
-//{
-//    Level *p = getByUrl(memberUrl);
-//    printf("getByUrl:%s %08x v:%d\n",memberUrl.c_str(),(int)p,enable);
-//    if(!p || !p->_Object) return;
-//     SetAttrs(p->_Object, MUIA_Disabled,enable,TAG_DONE);
-//}
+
