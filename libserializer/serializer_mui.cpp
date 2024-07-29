@@ -825,13 +825,13 @@ void MUISerializer::ReAssigner::operator()(const char *sMemberName, AStringMap &
 }
 void MUISerializer::ReAssigner::listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition)
 {
-    printf("MUISerializer::listenChange:%s\n",sMemberName);
+    //printf("MUISerializer::listenChange:%s\n",sMemberName);
     std::list<Level *>::reverse_iterator rit = _stack.rbegin();
     while(rit != _stack.rend())
     {
         Level *pl = *rit++;
         if(pl && pl->_pMemberName && strcmp(sMemberName, pl->_pMemberName)==0) {
-                printf("push condition\n");
+              //  printf("push condition\n");
             pl->_rules.clear();
             pl->_rules.push_back(condition);
             pl->update();
