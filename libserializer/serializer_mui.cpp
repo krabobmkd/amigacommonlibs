@@ -611,40 +611,48 @@ void MUISerializer::LCycle::update()
 }
 // - - - - - - - - - - - - - - -
 MUISerializer::LCheckBox::LCheckBox(MUISerializer &ser,bool &value): Level(ser)
-, _value(&value)
+, _value(&value),_button(nullptr)
 {
 
 }
 void MUISerializer::LCheckBox::compile()
 {
-    _Object = MUI_NewObject(MUIC_Image,
-                ImageButtonFrame,
-                MUIA_InputMode        , MUIV_InputMode_Toggle,
-                MUIA_Image_Spec       , MUII_CheckMark,
-                MUIA_Image_FreeVert   , TRUE,
-                MUIA_Selected         , (ULONG)(_value?1:0),
-                MUIA_Background       , MUII_ButtonBack,
-                MUIA_ShowSelState     , FALSE,
-                TAG_DONE);
-    if(_Object)
+    _button = MUI_NewObject(MUIC_Image,
+            ImageButtonFrame,
+            MUIA_InputMode        , MUIV_InputMode_Toggle,
+            MUIA_Image_Spec       , MUII_CheckMark,
+            MUIA_Image_FreeVert   , TRUE,
+            MUIA_Selected         , (ULONG)(_value?1:0),
+            MUIA_Background       , MUII_ButtonBack,
+            MUIA_ShowSelState     , FALSE,
+            TAG_DONE);
+    if(!_button) return;
+   _Object = MUI_NewObject(MUIC_Group,MUIA_Group_Horiz,TRUE,
+                           NoFrame,
+                          // Child, (ULONG)HSpace(0),
+                           Child,(ULONG)_button,
+                           Child, (ULONG)HSpace(0),
+                           TAG_DONE
+                           );
+
+    if(_button)
     {
         _notifyHook.h_Entry =(RE_HOOKFUNC)&MUISerializer::LCheckBox::HNotify;
         _notifyHook.h_Data = this;
-        DoMethod(_Object,MUIM_Notify,
+        DoMethod(_button,MUIM_Notify,
                     MUIA_Selected, // attribute that triggers the notification.
                     MUIV_EveryTime, // TrigValue ,  every time when TrigAttr changes
                     _Object, // object on which to perform the notification method. or MUIV_Notify_Self
                     3, // FollowParams  number of following parameters (in hook ?)
                     MUIM_CallHook,(ULONG) &_notifyHook,  MUIV_TriggerValue);
-
     }
 
 }
 void MUISerializer::LCheckBox::update()
 {
-    if(!_Object || !_value) return;
+    if(!_button || !_value) return;
     Level::update();
-    SetAttrs(_Object,MUIA_Selected,(ULONG)(*_value?1:0),TAG_DONE);
+    SetAttrs(_button,MUIA_Selected,(ULONG)(*_value?1:0),TAG_DONE);
 
 }
 ULONG ASM MUISerializer::LCheckBox::HNotify(

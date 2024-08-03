@@ -72,7 +72,10 @@ struct ASerializer {
             return {p.first,(ASerializable *)&p.second};
                     //std::make_pair<std::string,ASerializable *>(p.first,(ASerializable *)&p.second);
         }
+        void setActive(std::string strid) { _active = strid; }
+        ASER &getActive(){ return _v[_active];};
         std::map<std::string,ASER> &_v;
+        std::string _active; // set here because suits fine, we map and tell current selection in map.
         typename std::map<std::string,ASER>::iterator _it;
     };
 

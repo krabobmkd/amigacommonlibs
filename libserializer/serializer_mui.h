@@ -122,6 +122,7 @@ protected:
         void compile() override;
         void update() override;
         bool *_value;
+        Object *_button;
         static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1));
         struct Hook _notifyHook;
 	};
