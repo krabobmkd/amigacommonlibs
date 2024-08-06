@@ -116,7 +116,7 @@ void MUISerializer::operator()(const char *sMemberName, int &v,const std::vector
     _pGrower = &plevel->_pNextBrother;
 }
 // for checkbox
-void MUISerializer::operator()(const char *sMemberName, bool &v) 
+void MUISerializer::operator()(const char *sMemberName, bool &v)
 {
     LCheckBox *plevel = new LCheckBox(*this,v);
     _stack.push_back(plevel);
@@ -172,6 +172,20 @@ void MUISerializer::operator()(const char *sMemberName, strText &str)
     *_pGrower = plevel;
     _pGrower = &plevel->_pNextBrother;
 }
+#ifdef MUISERIALIZER_USES_FLOAT
+// for sliders
+void MUISerializer::operator()(const char *sMemberName, float &v, float min, float max,float step,float defval)
+{
+    LSliderF *plevel = new LSliderF(*this,v,min,max,step,defval);
+    _stack.push_back(plevel);
+
+    plevel->_pMemberName = sMemberName;
+
+    *_pGrower = plevel;
+    _pGrower = &plevel->_pNextBrother;
+}
+#endif
+
 // - - - -rules
 void MUISerializer::listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition)
 {
@@ -552,10 +566,116 @@ void MUISerializer::LSlider::compile()
 }
 void MUISerializer::LSlider::update()
 {
-    if(!_Object) return;    
+    if(!_Object) return;
     Level::update();
     SetAttrs(_Object,MUIA_Slider_Level,*_value,TAG_DONE);
 }
+// - - - - - - - - - - - - - - -
+#ifdef MUISERIALIZER_USES_FLOAT
+ULONG ASM MUISerializer::LSliderF::HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1))
+{
+    if(!hook || !par) return 0;
+    LSliderF *plevel = (LSliderF *)hook->h_Data;
+    int iv = *par;
+    float v = plevel->_fmin + plevel->_fstep * (float)iv;
+
+    if(plevel && plevel->_value &&  *plevel->_value != v)
+    {
+        *plevel->_value = v;
+        plevel->update();
+    }
+   return 0;
+}
+ULONG ASM MUISerializer::LSliderF::HNotifyDef(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1))
+{
+    if(!hook || !par) return 0;
+    LSliderF *plevel = (LSliderF *)hook->h_Data;
+
+    if(plevel && plevel->_value)
+    {
+        *plevel->_value = plevel->_defval ;
+        plevel->update();
+    }
+   return 0;
+}
+MUISerializer::LSliderF::LSliderF(MUISerializer &ser,float &value,float min,float max,float step
+    ,float defval): Level(ser)
+    ,_Slider(NULL)
+    ,_pValueLabel(NULL)
+    , _value(&value),_fmin(min),_fmax(max),_fstep(step)
+    ,_defval(defval)
+    ,_nbsteps(0),_imin(0),_imax(0)
+{
+    _nbsteps = (int)((_fmax-_fmin)/_fstep);
+}
+void MUISerializer::LSliderF::compile()
+{
+    _Slider = MUI_NewObject(MUIC_Slider,
+              MUIA_Slider_Min, 0  /* _min*/,
+              MUIA_Slider_Max,    _nbsteps,
+              MUIA_Slider_Quiet, TRUE, // we don't display the int value.
+            TAG_DONE);
+
+    _pValueLabel = Label((ULONG)"-");
+
+    _pDefBt = SimpleButton((ULONG)"Default");
+
+   _Object =MUI_NewObject(MUIC_Group,MUIA_Group_Horiz,TRUE,
+            Child,(ULONG)_Slider,
+            Child,(ULONG)_pValueLabel,
+            Child,(ULONG)_pDefBt,
+            TAG_DONE
+            );
+
+    if(_Slider)
+    {
+        _notifyHook.h_Entry =(RE_HOOKFUNC)&HNotify;
+        _notifyHook.h_Data = this;
+        DoMethod(_Slider,MUIM_Notify,
+                    MUIA_Slider_Level, // attribute that triggers the notification.
+                    MUIV_EveryTime, // TrigValue ,  every time when TrigAttr changes
+                    _Slider, // object on which to perform the notification method. or MUIV_Notify_Self
+                    3, // FollowParams  number of following parameters (in hook ?)
+                    MUIM_CallHook,(ULONG) &_notifyHook,  MUIV_TriggerValue);
+
+    }
+    if(_pDefBt)
+    {
+        _defHook.h_Entry =(RE_HOOKFUNC)&HNotifyDef;
+        _defHook.h_Data = this;
+        DoMethod(_pDefBt, MUIM_Notify, MUIA_Pressed, MUIV_EveryTime,
+            _pDefBt,  3,
+            MUIM_CallHook,(ULONG) &_defHook,  MUIV_TriggerValue );
+
+        struct Hook _defHook;
+
+    }
+
+
+
+}
+void MUISerializer::LSliderF::update()
+{
+    if(!_Slider) return;
+    Level::update();
+    float v = *_value;
+    int i= (int)((v-_fmin)/_fstep);
+
+    int icurrent=0;
+    GetAttr(MUIA_Slider_Level,_Slider,(ULONG *)&icurrent);
+    if(icurrent != i)
+    {
+        SetAttrs(_Slider,MUIA_Slider_Level,i,TAG_DONE);
+    }
+    if(_pValueLabel)
+    {
+        snprintf(_display,15,"%.3f",v);
+        SetAttrs(_pValueLabel,MUIA_Text_Contents,(ULONG)&_display[0],TAG_DONE);
+    }
+
+
+}
+#endif
 // - - - - - - - - - - - - - - -
 MUISerializer::LCycle::LCycle(MUISerializer &ser,int &value,const std::vector<std::string> &values): Level(ser)
  ,_value(&value),_values(values)
@@ -611,38 +731,36 @@ void MUISerializer::LCycle::update()
 }
 // - - - - - - - - - - - - - - -
 MUISerializer::LCheckBox::LCheckBox(MUISerializer &ser,bool &value): Level(ser)
-, _value(&value),_button(nullptr)
+,_Button(NULL), _value(&value)
 {
 
 }
 void MUISerializer::LCheckBox::compile()
 {
-    _button = MUI_NewObject(MUIC_Image,
-            ImageButtonFrame,
-            MUIA_InputMode        , MUIV_InputMode_Toggle,
-            MUIA_Image_Spec       , MUII_CheckMark,
-            MUIA_Image_FreeVert   , TRUE,
-            MUIA_Selected         , (ULONG)(_value?1:0),
-            MUIA_Background       , MUII_ButtonBack,
-            MUIA_ShowSelState     , FALSE,
-            TAG_DONE);
-    if(!_button) return;
-   _Object = MUI_NewObject(MUIC_Group,MUIA_Group_Horiz,TRUE,
-                           NoFrame,
-                          // Child, (ULONG)HSpace(0),
-                           Child,(ULONG)_button,
-                           Child, (ULONG)HSpace(0),
-                           TAG_DONE
-                           );
+    _Button = MUI_NewObject(MUIC_Image,
+                ImageButtonFrame,
+                MUIA_InputMode        , MUIV_InputMode_Toggle,
+                MUIA_Image_Spec       , MUII_CheckMark,
+                MUIA_Image_FreeVert   , TRUE,
+                MUIA_Selected         , (ULONG)(_value?1:0),
+                MUIA_Background       , MUII_ButtonBack,
+                MUIA_ShowSelState     , FALSE,
+                TAG_DONE);
 
-    if(_button)
+ _Object = MUI_NewObject(MUIC_Group,MUIA_Group_Horiz,TRUE,
+            Child,(ULONG)_Button,
+            Child, (ULONG)HSpace(0),
+            TAG_DONE
+            );
+
+    if(_Button)
     {
         _notifyHook.h_Entry =(RE_HOOKFUNC)&MUISerializer::LCheckBox::HNotify;
         _notifyHook.h_Data = this;
-        DoMethod(_button,MUIM_Notify,
+        DoMethod(_Button,MUIM_Notify,
                     MUIA_Selected, // attribute that triggers the notification.
                     MUIV_EveryTime, // TrigValue ,  every time when TrigAttr changes
-                    _Object, // object on which to perform the notification method. or MUIV_Notify_Self
+                    _Button, // object on which to perform the notification method. or MUIV_Notify_Self
                     3, // FollowParams  number of following parameters (in hook ?)
                     MUIM_CallHook,(ULONG) &_notifyHook,  MUIV_TriggerValue);
     }
@@ -650,9 +768,9 @@ void MUISerializer::LCheckBox::compile()
 }
 void MUISerializer::LCheckBox::update()
 {
-    if(!_button || !_value) return;
+    if(!_Button || !_value) return;
     Level::update();
-    SetAttrs(_button,MUIA_Selected,(ULONG)(*_value?1:0),TAG_DONE);
+    SetAttrs(_Button,MUIA_Selected,(ULONG)(*_value?1:0),TAG_DONE);
 
 }
 ULONG ASM MUISerializer::LCheckBox::HNotify(
@@ -831,6 +949,16 @@ void MUISerializer::ReAssigner::operator()(const char *sMemberName, AStringMap &
 {
     // todo... shouldnt be recursive...
 }
+#ifdef MUISERIALIZER_USES_FLOAT
+void MUISerializer::ReAssigner::operator()(const char *sMemberName, float &v, float min, float max,float step,float defval)
+{
+    LGroup *pgroup = (LGroup *)_stack.back();
+    LSliderF *pslider = (LSliderF *) pgroup->getChild(sMemberName);
+    if(!pslider) return;
+    pslider->_value  = &v;
+    pslider->update();
+}
+#endif
 void MUISerializer::ReAssigner::listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition)
 {
     //printf("MUISerializer::listenChange:%s\n",sMemberName);

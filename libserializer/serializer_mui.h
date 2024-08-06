@@ -14,12 +14,13 @@ extern "C" {
 #define REG(r) __asm(#r)
 #endif
 
+
 struct ScreenModeRequester;
 
 /** Will mirror MUI panels and gadgets to serialized data.
 */
 struct MUISerializer : public ASerializer {
-	
+
 	MUISerializer();
     virtual ~MUISerializer();
     void operator()(const char *sMemberName, ASerializable &subconf, int flags=0) override;
@@ -38,11 +39,16 @@ struct MUISerializer : public ASerializer {
 
     void operator()(const char *sMemberName, strText &str) override;
 
+#ifdef MUISERIALIZER_USES_FLOAT
+    // for sliders
+    void operator()(const char *sMemberName, float &v, float min, float max,float step,float defval) override;
+#endif
+
     // - - - -rules
     void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition) override;
     void enable(std::string memberUrl, int enable) override;
 
-	// - - - - - -	
+	// - - - - - -
     // allow insertion of tabs before compile...
     void insertFirstPanel(Object *pPanel,const char *pName);
 
@@ -53,7 +59,7 @@ struct MUISerializer : public ASerializer {
     // switch LGroupSubMap
     void selectGroup(std::string groupurl,std::string selection);
 
-protected:    
+protected:
 	struct Level {
     	Level(MUISerializer &ser);
         MUISerializer &_ser;
@@ -107,6 +113,25 @@ protected:
         int _min,_max;
         struct Hook _notifyHook;
 	};
+#ifdef MUISERIALIZER_USES_FLOAT
+    struct LSliderF : public Level {
+        static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1));
+        static ULONG ASM HNotifyDef(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1));
+        LSliderF(MUISerializer &ser,float &value,float min,float max,float step,float defval);
+        void compile() override;
+        void update() override;
+        Object *_Slider,*_pValueLabel,*_pDefBt;
+        float *_value;
+        float _fmin,_fmax;
+        float _fstep;
+        float _defval;
+        int _nbsteps;
+        int _imin,_imax;
+        char _display[16];
+        struct Hook _notifyHook;
+        struct Hook _defHook;
+	};
+#endif
     struct LCycle : public Level {
         static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1));
         LCycle(MUISerializer &ser,int &value,const std::vector<std::string> &values);
@@ -121,8 +146,8 @@ protected:
         LCheckBox(MUISerializer &ser,bool &value);
         void compile() override;
         void update() override;
+        Object *_Button;
         bool *_value;
-        Object *_button;
         static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1));
         struct Hook _notifyHook;
 	};
@@ -165,7 +190,9 @@ protected:
         void operator()(const char *sMemberName, bool &v) override;
         void operator()(const char *sMemberName, ULONG_SCREENMODEID &v) override;
         void operator()(const char *sMemberName, AStringMap &m) override;
-
+#ifdef MUISERIALIZER_USES_FLOAT
+        void operator()(const char *sMemberName, float &v, float min, float max,float step,float defval) override;
+#endif
         void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition) override;
         std::list<Level *> _stack;
     };

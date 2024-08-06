@@ -39,6 +39,11 @@ struct ASerializer {
    //re? virtual void operator()(const char *sMemberName, strcomment &str) = 0;
     virtual void operator()(const char *sMemberName, strText &str) {}
 
+#ifdef MUISERIALIZER_USES_FLOAT
+    // for sliders
+    virtual void operator()(const char *sMemberName, float &v, float min, float max,float step,float defval) =0;
+#endif
+
     // - - - -rules
     virtual void listenChange(const char *sMemberName,std::function<void(ASerializer &serializer, void *p)> condition) {}
     virtual void enable(std::string memberUrl, int enable) {}
