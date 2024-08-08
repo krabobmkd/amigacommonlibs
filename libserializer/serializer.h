@@ -24,7 +24,8 @@ struct ASerializable {
 typedef std::string strcomment;
 typedef std::string strText;
 typedef unsigned int ULONG_SCREENMODEID;
-
+// list of booleans
+typedef unsigned int ULONG_FLAGS;
 struct ASerializer {
 
     virtual void operator()(const char *sMemberName, ASerializable &subconf, int flags=0) = 0;
@@ -33,6 +34,9 @@ struct ASerializer {
     virtual void operator()(const char *sMemberName, int &v, int min, int max) = 0;
     // for cycling
     virtual void operator()(const char *sMemberName, int &v,const std::vector<std::string> &values) = 0;
+    // for many checkbox flags
+    virtual void operator()(const char *sMemberName, ULONG_FLAGS &v,ULONG_FLAGS valdef,const std::vector<std::string> &values) = 0;
+
     // for checkbox
     virtual void operator()(const char *sMemberName, bool &v) = 0;
     virtual void operator()(const char *sMemberName, ULONG_SCREENMODEID &v) = 0;

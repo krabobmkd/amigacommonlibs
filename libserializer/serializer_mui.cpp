@@ -126,6 +126,18 @@ void MUISerializer::operator()(const char *sMemberName, bool &v)
     *_pGrower = plevel;
     _pGrower = &plevel->_pNextBrother;
 }
+// for table of flags
+void MUISerializer::operator()(const char *sMemberName, ULONG_FLAGS &v,ULONG_FLAGS valdef,const std::vector<std::string> &values)
+{
+    LFlags *plevel = new LFlags(*this,v,valdef,values);
+    _stack.push_back(plevel);
+
+    plevel->_pMemberName = sMemberName;
+
+    *_pGrower = plevel;
+    _pGrower = &plevel->_pNextBrother;
+}
+
 // for screen ids
 void MUISerializer::operator()(const char *sMemberName, ULONG_SCREENMODEID &v)
 {
@@ -432,6 +444,99 @@ void MUISerializer::LGroup::update()
         plevel = plevel->_pNextBrother;
     }
 }
+// - - - - - - - - - - - - - - -
+ULONG ASM MUISerializer::LFlags::HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1))
+{
+    if(!hook || !par ) return 0;
+    MUISerializer::LFlags *plevel = (MUISerializer::LFlags *)hook->h_Data;
+    if(!plevel->_pflugs) return 0;
+    // got to identify checkbox clicked
+    unsigned int ib=1;
+    for(int iflag=0;iflag<(int)plevel->_flagNames.size() ;iflag++)
+    {
+        if(plevel->_buttons[iflag] == obj)
+        {
+            if(*par != 0)
+                *(plevel->_pflugs) |= ib;
+            else *(plevel->_pflugs) &= ~ib;
+        }
+        ib <<=1;
+    }
+    return 0;
+}
+
+MUISerializer::LFlags::LFlags(MUISerializer &ser,ULONG_FLAGS &flugs,
+                              ULONG_FLAGS defval,const std::vector<std::string> &names)
+: Level(ser), _pflugs(&flugs),_flagNames(names)
+{
+    _buttons.resize(names.size());
+    _notifyHook.h_Entry =(RE_HOOKFUNC)&MUISerializer::LFlags::HNotify;
+    _notifyHook.h_Data = this;
+}
+void MUISerializer::LFlags::compile()
+{
+    int nbcolumns = 4;
+   // if(_flgs & SERFLAG_GROUP_2COLUMS) nbcolumns=4;
+    vector<ULONG> tagitems= {MUIA_Group_Columns,nbcolumns,MUIA_HorizWeight,1000};
+    Level *plevel = _pFirstChild;
+    int iflag=0;
+    unsigned int startval = (_pflugs)?*_pflugs:0;
+    unsigned int ib=1;
+    for(int iflag=0;iflag<(int)_flagNames.size() ;iflag++)
+    {
+        _buttons[iflag] =
+                MUI_NewObject(MUIC_Image,
+                                ImageButtonFrame,
+                                MUIA_InputMode        , MUIV_InputMode_Toggle,
+                                MUIA_Image_Spec       , MUII_CheckMark,
+                                MUIA_Image_FreeVert   , TRUE,
+                                MUIA_Selected         , (ULONG)((startval&ib)?1:0),
+                                MUIA_Background       , MUII_ButtonBack,
+                                MUIA_ShowSelState     , FALSE,
+                                TAG_DONE);
+
+        tagitems.push_back(Child);
+        tagitems.push_back((ULONG)Label((ULONG)_flagNames[iflag].c_str()));
+        tagitems.push_back(Child);
+        tagitems.push_back((ULONG)_buttons[iflag]);
+
+        if(_buttons[iflag])
+        {
+            DoMethod(_buttons[iflag],MUIM_Notify,
+                        MUIA_Selected, // attribute that triggers the notification.
+                        MUIV_EveryTime, // TrigValue ,  every time when TrigAttr changes
+                        _buttons[iflag], // object on which to perform the notification method. or MUIV_Notify_Self
+                        3, // FollowParams  number of following parameters (in hook ?)
+                        MUIM_CallHook,(ULONG) &_notifyHook,  MUIV_TriggerValue);
+        }
+
+        ib<<=1;
+    }
+    if(_flagNames.size()==0)
+    {
+        tagitems.push_back(Child);
+        tagitems.push_back((ULONG)Label((ULONG)"-"));
+        tagitems.push_back(Child);
+        tagitems.push_back((ULONG)Label((ULONG)"-"));
+    }
+    tagitems.push_back(TAG_DONE);
+
+    _Object= MUI_NewObjectA(MUIC_Group,(struct TagItem *) tagitems.data());
+}
+void MUISerializer::LFlags::update()
+{
+    if( !_pflugs) return;
+    Level::update();
+    unsigned int ib=1;
+    for(int iflag=0;iflag<(int)_flagNames.size() ;iflag++)
+    {
+        SetAttrs(_buttons[iflag],MUIA_Selected,(ULONG)((*_pflugs & ib)?1:0),TAG_DONE);
+        ib<<=1;
+    }
+
+}
+//ULONG_FLAGS *_pflugs;
+
 // - - - - - - - - - - - - - - -
 MUISerializer::LSwitchGroup::LSwitchGroup(MUISerializer &ser,int flgs,AStringMap &map) : LGroup(ser,flgs)
   ,_map(&map), _displayName("(select a driver)"),_SelectedItemText(NULL)
@@ -944,6 +1049,14 @@ void MUISerializer::ReAssigner::operator()(const char *sMemberName, ULONG_SCREEN
     if(!preq) return;
     preq->_value  = &v;
     preq->update();
+}
+void MUISerializer::ReAssigner::operator()(const char *sMemberName, ULONG_FLAGS &v,ULONG_FLAGS valdef,const std::vector<std::string> &values)
+{
+    LGroup *pgroup = (LGroup *)_stack.back();
+    LFlags *pflags = (LFlags *) pgroup->getChild(sMemberName);
+    if(!pflags) return;
+    pflags->_pflugs  = &v;
+    pflags->update();
 }
 void MUISerializer::ReAssigner::operator()(const char *sMemberName, AStringMap &m)
 {

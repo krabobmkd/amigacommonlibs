@@ -32,6 +32,8 @@ struct MUISerializer : public ASerializer {
     void operator()(const char *sMemberName, int &v,const std::vector<std::string> &values) override;
     // for checkbox
     void operator()(const char *sMemberName, bool &v) override;
+    // for many flags
+    void operator()(const char *sMemberName, ULONG_FLAGS &v,ULONG_FLAGS valdef,const std::vector<std::string> &values)override;
     // for screen ids
     void operator()(const char *sMemberName, ULONG_SCREENMODEID &v) override;
 	// serialize abstract class string map
@@ -79,6 +81,17 @@ protected:
         void update() override;
         virtual Object *compileOuterFrame(Object *pinnerGroup);
         int _flgs;
+	};
+    struct LFlags : public Level {
+        LFlags(MUISerializer &ser,ULONG_FLAGS &flugs,ULONG_FLAGS defval,const std::vector<std::string> &names);
+        void compile() override;
+        void update() override;
+        ULONG_FLAGS *_pflugs;
+        std::vector<std::string> _flagNames;
+        std::vector<Object *> _buttons;
+        struct Hook _notifyHook;
+        static ULONG ASM HNotify(struct Hook *hook REG(a0), APTR obj REG(a2), ULONG *par REG(a1));
+
 	};
     struct LSwitchGroup : public LGroup {
         LSwitchGroup(MUISerializer &ser,int flgs,AStringMap &map);
@@ -189,6 +202,7 @@ protected:
         void operator()(const char *sMemberName, int &v,const std::vector<std::string> &values) override;
         void operator()(const char *sMemberName, bool &v) override;
         void operator()(const char *sMemberName, ULONG_SCREENMODEID &v) override;
+        void operator()(const char *sMemberName, ULONG_FLAGS &v,ULONG_FLAGS valdef,const std::vector<std::string> &values)override;
         void operator()(const char *sMemberName, AStringMap &m) override;
 #ifdef MUISERIALIZER_USES_FLOAT
         void operator()(const char *sMemberName, float &v, float min, float max,float step,float defval) override;
