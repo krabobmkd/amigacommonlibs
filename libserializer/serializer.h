@@ -8,6 +8,7 @@
 struct ASerializer;
 
 #define SERFLAG_STRING_ISPATH 1
+#define SERFLAG_STRING_ISFILE 2
 
 #define SERFLAG_GROUP_TABS 1
 #define SERFLAG_GROUP_2COLUMS 2

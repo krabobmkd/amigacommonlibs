@@ -596,13 +596,13 @@ ULONG ASM MUISerializer::LString::HNotify(struct Hook *hook REG(a0), APTR obj RE
 }
 void MUISerializer::LString::compile()
 {
-    if(_flgs & SERFLAG_STRING_ISPATH)
+    if(_flgs & (SERFLAG_STRING_ISPATH|SERFLAG_STRING_ISFILE))
     {
         // if manage path, have a requester and all.
         _Object = MUI_NewObject(MUIC_Popasl,
                   MUIA_Popstring_String,(ULONG)(_STRING_Path = OString(0, 2048)),
                   MUIA_Popstring_Button, (ULONG)(PopButton(MUII_PopDrawer)),
-                  ASLFR_DrawersOnly,    TRUE,
+                  ASLFR_DrawersOnly, ( _flgs & SERFLAG_STRING_ISPATH )?TRUE:FALSE,
                 TAG_DONE);
     } else
     {
