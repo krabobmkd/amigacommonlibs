@@ -19,7 +19,8 @@ message(WARNING "expat compiled with options:${AMIGA_COMPILER_OPTIONS}")
 add_library(expat STATIC ${EXPAT_SRCS} ${EXPAT_HDRS} )
 set_property(TARGET expat PROPERTY C_STANDARD 11)
 target_compile_definitions(expat PRIVATE PTRCALL= )
-target_compile_options(expat PRIVATE -O0 ${AMIGA_COMPILER_OPTIONS} )
-
+if(AMIGA)
+target_compile_options(expat PRIVATE -O2 ${AMIGA_COMPILER_OPTIONS} )
+endif()
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_SOURCE_DIR})
 

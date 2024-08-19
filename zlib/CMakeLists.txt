@@ -56,7 +56,9 @@ set(ZLIB_SRCS
 message(WARNING "zlib compiled with options:${AMIGA_COMPILER_OPTIONS}")
 add_library(z STATIC  ${ZLIB_SRCS} ${ZLIB_PUBLIC_HDRS} ${ZLIB_PRIVATE_HDRS} )
 set_property(TARGET z PROPERTY C_STANDARD 11)
-target_compile_options(z PRIVATE -O2 ${AMIGA_COMPILER_OPTIONS} )
+if(AMIGA)
+	target_compile_options(z PRIVATE -O2 ${AMIGA_COMPILER_OPTIONS} )
+endif()
 
 # generate zconf.h
 configure_file(	${CMAKE_CURRENT_SOURCE_DIR}/../zlib/zconf.h.cmakein

@@ -34,11 +34,18 @@
 #if __AMIGA__
 /* makes it simpler when compiling lbpng using zlib, and both need full .h to bootstrap.*/
 #include "amiga_zconf.h"
-#else
-# this is cmake bootstrap generated in build dir.
-#include "zconf.h"
+#endif
+#ifdef __linux__
+//# this is cmake bootstrap generated in build dir.
+#include "linux_zconf.h"
+#endif
+#ifdef WIN32
+//# this is cmake bootstrap generated in build dir.
+#include "windows_zconf.h"
 #endif
 
+////# this is cmake bootstrap generated in build dir.
+//#include "zconf.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

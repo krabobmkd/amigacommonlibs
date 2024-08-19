@@ -5,8 +5,6 @@
 
 #include "gzguts.h"
 
-#define GZ_USE_STDIO 1
-
 #if GZ_USE_STDIO
     #include <stdio.h>
 #else
@@ -17,7 +15,7 @@
     #if defined(_LARGEFILE64_SOURCE) && _LFS64_LARGEFILE-0
     #  define LSEEK lseek64
     #else
-    #  define LSEEK lseek
+    #  define LSEEK lseekls
     #endif
     #endif
 #endif
@@ -257,7 +255,7 @@ local gzFile gz_open(const void *path, int fd, const char *mode) {
 #endif
 
     if (state->mode == GZ_APPEND) {
-#if __AMIGA__
+#if GZ_USE_STDIO
     fseek(state->afd,0,SEEK_END);
 #else
     LSEEK(state->fd, 0, SEEK_END);  /* so gzoffset() is correct */
