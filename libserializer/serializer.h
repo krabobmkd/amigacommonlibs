@@ -32,7 +32,7 @@ struct ASerializer {
     virtual void operator()(const char *sMemberName, ASerializable &subconf, int flags=0) = 0;
     virtual void operator()(const char *sMemberName, std::string &str, int flags) = 0;
     // for sliders
-    virtual void operator()(const char *sMemberName, int &v, int min, int max) = 0;
+    virtual void operator()(const char *sMemberName, int &v, int min, int max, int vdeflt) = 0;
     // for cycling
     virtual void operator()(const char *sMemberName, int &v,const std::vector<std::string> &values) = 0;
     // for many checkbox flags

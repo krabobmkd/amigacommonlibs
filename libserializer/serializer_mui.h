@@ -27,7 +27,7 @@ struct MUISerializer : public ASerializer {
 
     void operator()(const char *sMemberName, std::string &str, int flags=0) override;
     // for sliders
-    void operator()(const char *sMemberName, int &v, int min, int max) override;
+    void operator()(const char *sMemberName, int &v, int min, int max, int defv) override;
     // for cycling
     void operator()(const char *sMemberName, int &v,const std::vector<std::string> &values) override;
     // for checkbox
@@ -198,7 +198,7 @@ protected:
         ReAssigner(Level &group);
         void operator()(const char *sMemberName, ASerializable &subconf, int flags=0) override;
         void operator()(const char *sMemberName, std::string &str, int flags=0) override;
-        void operator()(const char *sMemberName, int &v, int min, int max) override;
+        void operator()(const char *sMemberName, int &v, int min, int max, int defv) override;
         void operator()(const char *sMemberName, int &v,const std::vector<std::string> &values) override;
         void operator()(const char *sMemberName, bool &v) override;
         void operator()(const char *sMemberName, ULONG_SCREENMODEID &v) override;

@@ -93,7 +93,7 @@ void MUISerializer::operator()(const char *sMemberName, std::string &str,int fla
 
 }
 // for sliders
-void MUISerializer::operator()(const char *sMemberName, int &v, int min, int max)
+void MUISerializer::operator()(const char *sMemberName, int &v, int min, int max, int defv)
 {
     LSlider *plevel = new LSlider(*this,v,min,max);
     _stack.push_back(plevel);
@@ -1018,7 +1018,7 @@ void MUISerializer::ReAssigner::operator()(const char *sMemberName, std::string 
     pstr->_str = &str;
     pstr->update();
 }
-void MUISerializer::ReAssigner::operator()(const char *sMemberName, int &v, int min, int max)
+void MUISerializer::ReAssigner::operator()(const char *sMemberName, int &v, int min, int max, int defv)
 {
     LGroup *pgroup = (LGroup *)_stack.back();
     LSlider *pslider = (LSlider *) pgroup->getChild(sMemberName);
