@@ -12,7 +12,7 @@ struct ASerializer;
 
 #define SERFLAG_GROUP_TABS 1
 #define SERFLAG_GROUP_2COLUMS 2
-
+#define SERFLAG_GROUP_SCROLLER 4
 
 struct ASerializable {
     virtual void serialize(ASerializer &serializer)=0;

@@ -422,17 +422,45 @@ void MUISerializer::LGroup::compile()
 }
 Object *MUISerializer::LGroup::compileOuterFrame(Object *pinnerGroup)
 {
-    return MUI_NewObject(MUIC_Group,
-        Child, (ULONG)HVSpace,
-        Child, (ULONG)MUI_NewObject(MUIC_Group,MUIA_Group_Horiz,TRUE,
-            Child, (ULONG)HSpace(0),
-            Child,(ULONG)pinnerGroup,
-            Child, (ULONG)HSpace(0),
-            TAG_DONE
-            ),
-        Child, (ULONG)HVSpace,
-        TAG_DONE
-        );
+
+
+    if(_flgs & SERFLAG_GROUP_SCROLLER)
+    {
+        Object *ob = MUI_NewObject(MUIC_Virtgroup,VirtualFrame,
+                MUIA_Background, MUII_TextBack,
+               Child, (ULONG)HVSpace,
+               Child, (ULONG)MUI_NewObject(MUIC_Group,MUIA_Group_Horiz,TRUE,
+                                     Child, (ULONG)HSpace(0),
+                                     Child,(ULONG)pinnerGroup,
+                                     Child, (ULONG)HSpace(0),
+                                     TAG_DONE
+                                     ),
+               Child, (ULONG)HVSpace,
+               TAG_DONE
+               );
+        if(!ob) return NULL;
+
+
+        Object *scrollgroup  =
+            MUI_NewObject(MUIC_Scrollgroup,
+             MUIA_Scrollgroup_FreeHoriz, TRUE,
+             MUIA_Scrollgroup_FreeVert, TRUE,
+             MUIA_Scrollgroup_Contents, (ULONG)ob,
+            TAG_DONE);
+        return scrollgroup;
+    }
+   return MUI_NewObject(MUIC_Group,
+                  Child, (ULONG)HVSpace,
+                  Child, (ULONG)MUI_NewObject(MUIC_Group,MUIA_Group_Horiz,TRUE,
+                                        Child, (ULONG)HSpace(0),
+                                        Child,(ULONG)pinnerGroup,
+                                        Child, (ULONG)HSpace(0),
+                                        TAG_DONE
+                                        ),
+                  Child, (ULONG)HVSpace,
+                  TAG_DONE
+                  );
+
 }
 
 void MUISerializer::LGroup::update()
