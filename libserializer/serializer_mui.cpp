@@ -107,6 +107,7 @@ void MUISerializer::operator()(const char *sMemberName, int &v, int min, int max
 // for cycling
 void MUISerializer::operator()(const char *sMemberName, int &v,const std::vector<std::string> &values)
 {
+    if(values.size() ==0) return; // means not ui managed.
 	 LCycle *plevel = new LCycle(*this,v,values);
     _stack.push_back(plevel);
 
