@@ -1,0 +1,6 @@
+created with:
+ /opt/amiga/bin/fd2sfd camd_lib.fd camd_protos.h -o camd_lib.sfd
+
+/opt/amiga/bin/sfdc camd_lib.sfd --mode clib >./include/clib/camd_protos.h
+/opt/amiga/bin/sfdc camd_lib.sfd --mode macros >./include/inline/camd.h
+
